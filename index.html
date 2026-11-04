@@ -683,7 +683,7 @@ const DEFAULTS = {
   lang: 'th', muted: false, pin: '1234',
   threshold: 75, stableFrames: 3, cooldown: 6, k: 7, minSim: 0, interval: 120,
   zeroShot: true, zsThreshold: 40,
-  speakTips: true, voiceRate: 1.0, voiceTh: '', voiceEn: '',
+  speakTips: true, voiceRate: 0.95, voicePitch: 1.0, voiceTh: '', voiceEn: '', chime: true, voiceVer: 2,
   tplTh: '{item} ทิ้งลง{bin} {type}ค่ะ', tplEn: '{item}: please use the {bin} for {type}.',
   cameraId: '', facing: 'user', mirror: true, modelSize: 'standard',
   readAnswers: true, showSurvey: true, idleReset: 90, autoFullscreen: true,
@@ -699,6 +699,7 @@ function loadSettings() {
   if (!Array.isArray(out.bins) || !out.bins.length) out.bins = clone(DEFAULT_BINS);
   if (!Array.isArray(out.items) || !out.items.length) out.items = clone(DEFAULT_ITEMS);
   if (!out.items.find(i => i.id === BG)) out.items.unshift(clone(DEFAULT_ITEMS[0]));
+  if (s.voiceVer !== 2) { if (!s.voiceRate || s.voiceRate === 1) out.voiceRate = 0.95; out.voiceTh = ''; out.voiceEn = ''; out.voiceVer = 2; }
   return out;
 }
 const saveSettings = debounce(() => { try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) { console.warn(e); } }, 250);
@@ -766,34 +767,133 @@ function updateNet() {
 }
 function setMuteIcon() { $('#muteBtn').innerHTML = `<svg class="i"><use href="#i-${S.muted ? 'volx' : 'vol'}"/></svg>`; $('#muteBtn').classList.toggle('on', S.muted); }
 
-/* ---------------- speech ---------------- */
+/* ---------------- speech: clear female voice, chunked, no drop-outs ---------------- */
 let VOICES = [];
-function loadVoices() { try { VOICES = speechSynthesis.getVoices() || []; } catch { VOICES = []; } }
-if ('speechSynthesis' in window) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
+const VOICE_HINTS = {
+  th: { female: /premwadee|achara|pattara|kanya|narisa|google\s*ไทย|female|ผู้หญิง/, male: /niwat|\bmale\b|ผู้ชาย/ },
+  en: { female: /aria|jenny|ava\b|emma|michelle|ana\b|sonia|libby|natasha|clara|zira|hazel|susan|samantha|karen|moira|tessa|fiona|victoria|allison|serena|google us english|uk english female|female/,
+        male: /\bguy\b|davis|andrew|brian|christopher|eric|roger|steffan|ryan|thomas|william|david|mark|george|daniel|alex\b|fred|oliver|aaron|arthur|uk english male|\bmale\b/ }
+};
+const vLang = v => String(v.lang || '').toLowerCase().replace('_', '-');
+function voiceInfo(v, lang) {
+  const n = (v.name + ' ' + v.voiceURI).toLowerCase(), h = VOICE_HINTS[lang] || VOICE_HINTS.en;
+  const female = h.female.test(n) && !/\bmale\b/.test(n.replace('female', ''));
+  return { female, male: !female && h.male.test(n), natural: /natural|neural|enhanced|premium|siri/.test(n), online: v.localService === false };
+}
+function voiceScore(v, lang) {
+  if (!vLang(v).startsWith(lang)) return -999;
+  const i = voiceInfo(v, lang), n = v.name.toLowerCase();
+  let s = 10;
+  if (i.female) s += 40;
+  if (i.male) s -= 60;
+  if (i.natural) s += 25;
+  if (/google/.test(n)) s += 8;
+  if (lang === 'en' && /en-(us|gb)/.test(vLang(v))) s += 5;
+  if (i.online && !navigator.onLine) s -= 200;          // network voices go silent offline
+  if (v.default) s += 2;
+  return s;
+}
+const voicesFor = lang => VOICES.filter(v => vLang(v).startsWith(lang)).sort((a, b) => voiceScore(b, lang) - voiceScore(a, lang));
+function bestVoice(lang) { return voicesFor(lang)[0] || null; }
+function localVoice(lang) { return voicesFor(lang).find(v => v.localService !== false) || null; }
 function pickVoice(lang) {
   const pref = lang === 'th' ? S.voiceTh : S.voiceEn;
-  let v = VOICES.find(x => x.voiceURI === pref);
-  if (!v) v = VOICES.find(x => x.lang && x.lang.toLowerCase().replace('_', '-').startsWith(lang));
-  return v || null;
+  let v = pref ? VOICES.find(x => x.voiceURI === pref) : null;
+  if (v && v.localService === false && !navigator.onLine) v = null;
+  return v || bestVoice(lang);
 }
-const speech = { busyUntil: 0 };
-function isSpeaking() { try { return speechSynthesis.speaking || speechSynthesis.pending || now() < speech.busyUntil; } catch { return false; } }
+function loadVoices() {
+  try { VOICES = speechSynthesis.getVoices() || []; } catch { VOICES = []; }
+  if (state.view === 'admin' && state.adminTab === 'settings' && typeof fillVoiceSelects === 'function') fillVoiceSelects();
+}
+if ('speechSynthesis' in window) { loadVoices(); try { speechSynthesis.addEventListener('voiceschanged', loadVoices); } catch { speechSynthesis.onvoiceschanged = loadVoices; } }
+
+// Make text easy for TTS engines: no emoji/symbols, "/" read as "หรือ", ranges read as "ถึง"
+function speechText(text, lang) {
+  let s = String(text || '')
+    .replace(/https?:\/\/\S+/g, ' ')
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, ' ')
+    .replace(/[•*#_`~|<>{}\[\]]/g, ' ')
+    .replace(/(\d)\s*[-–]\s*(\d)/g, lang === 'th' ? '$1 ถึง $2' : '$1 to $2')
+    .replace(/\s*\/\s*/g, lang === 'th' ? ' หรือ ' : ' or ')
+    .replace(/[()]/g, ' ');
+  if (lang === 'th') s = s.replace(/(\d)\s*กม\./g, '$1 กิโลเมตร').replace(/(\d)\s*ม\.(?=\s|$)/g, '$1 เมตร');
+  return s.replace(/\s+/g, ' ').trim();
+}
+// Short chunks (<=140 chars, split at sentence ends) avoid Chrome's long-utterance cut-off
+function chunkText(s, lang, max = 140) {
+  const marked = lang === 'th' ? s.replace(/(ค่ะ|คะ|ครับ|[.!?])\s+/g, '$1\u0001') : s.replace(/([.!?;:])\s+/g, '$1\u0001');
+  const pieces = [];
+  for (let p of marked.split(/\u0001|\n+/)) {
+    p = p.trim(); if (!p) continue;
+    while (p.length > max) {
+      let cut = p.lastIndexOf(' ', max); if (cut < max * 0.4) cut = max;
+      pieces.push(p.slice(0, cut).trim()); p = p.slice(cut).trim();
+    }
+    if (p) pieces.push(p);
+  }
+  const out = [];
+  for (const p of pieces) { if (out.length && (out[out.length - 1] + ' ' + p).length <= max) out[out.length - 1] += ' ' + p; else out.push(p); }
+  return out;
+}
+const speech = { token: 0, q: [], busy: false, busyUntil: 0, keep: [], lang: 'th', onstart: null, started: false, retried: false, watchdog: null };
+function engineBusy() { try { return speechSynthesis.speaking || speechSynthesis.pending; } catch { return false; } }
+function isSpeaking() {
+  if (speech.busy && now() > speech.busyUntil) speech.busy = false;   // safety if an engine never reports "end"
+  return speech.busy || engineBusy();
+}
+function stopSpeech() {
+  speech.token++; speech.q = []; speech.busy = false; clearTimeout(speech.watchdog);
+  speech.keep.forEach(u => { u._dead = true; });
+  if (engineBusy()) { try { speechSynthesis.cancel(); } catch {} }
+}
 function speak(text, { lang = L(), force = false, onstart } = {}) {
   if (S.muted || !('speechSynthesis' in window) || !text) { onstart && onstart(); return false; }
   if (!force && isSpeaking()) return false;
-  try {
-    if (force) speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = lang === 'th' ? 'th-TH' : 'en-US';
-    const v = pickVoice(lang); if (v) u.voice = v;
-    u.rate = S.voiceRate; u.pitch = 1;
-    u.onstart = () => onstart && onstart();
-    u.onend = u.onerror = () => { speech.busyUntil = 0; };
-    speech.busyUntil = now() + Math.min(15000, 900 + text.length * 85);
-    speechSynthesis.speak(u);
-    try { speechSynthesis.resume(); } catch {}
-    return true;
-  } catch (e) { console.warn(e); return false; }
+  const chunks = chunkText(speechText(text, lang), lang);
+  if (!chunks.length) return false;
+  const hadSpeech = engineBusy();
+  stopSpeech();
+  const tok = speech.token;
+  Object.assign(speech, { q: chunks, busy: true, lang, onstart, started: false, retried: false,
+    busyUntil: now() + 3000 + chunks.join(' ').length * 110 / Math.max(0.5, S.voiceRate) });
+  // speaking right after cancel() makes Chrome drop the first words, so leave a short gap
+  if (hadSpeech) setTimeout(() => speakNext(tok), 160); else speakNext(tok);
+  return true;
+}
+function finishSpeech(tok) { if (tok !== speech.token) return; speech.busy = false; clearTimeout(speech.watchdog); }
+function speakNext(tok, voice) {
+  if (tok !== speech.token) return;
+  const text = speech.q.shift();
+  if (text == null) { finishSpeech(tok); return; }
+  const lang = speech.lang;
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = lang === 'th' ? 'th-TH' : 'en-US';
+  const v = voice || pickVoice(lang);
+  if (v) { try { u.voice = v; if (v.lang) u.lang = v.lang; } catch {} }
+  u.rate = S.voiceRate; u.pitch = S.voicePitch; u.volume = 1;
+  speech.keep.push(u); if (speech.keep.length > 24) speech.keep.shift();   // keep references: Chrome GC can cut speech
+  let started = false;
+  const retryLocal = () => {
+    const lv = localVoice(lang);
+    if (!speech.retried && lv && (!v || v.voiceURI !== lv.voiceURI)) { speech.retried = true; speech.q.unshift(text); setTimeout(() => speakNext(tok, lv), 160); return true; }
+    return false;
+  };
+  u.onstart = () => { started = true; clearTimeout(speech.watchdog); if (!speech.started) { speech.started = true; speech.onstart && speech.onstart(); } };
+  u.onend = () => { if (u._dead || tok !== speech.token) return; clearTimeout(speech.watchdog); speakNext(tok, voice); };
+  u.onerror = e => {
+    if (u._dead || tok !== speech.token) return;
+    clearTimeout(speech.watchdog);
+    if (e.error === 'interrupted' || e.error === 'canceled') return;
+    if (!retryLocal()) speakNext(tok, voice);
+  };
+  // a network voice that never starts (weak signal) is swapped for an on-device voice
+  speech.watchdog = setTimeout(() => {
+    if (tok !== speech.token || started) return;
+    u._dead = true; try { speechSynthesis.cancel(); } catch {}
+    if (!retryLocal()) finishSpeech(tok);
+  }, 3500);
+  try { speechSynthesis.speak(u); } catch (e) { console.warn(e); finishSpeech(tok); }
 }
 let AC = null;
 function unlockAudio() {
@@ -801,16 +901,17 @@ function unlockAudio() {
   try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch {}
 }
 function chime() {
-  if (S.muted || !AC) return;
+  if (S.muted || !S.chime || !AC) return 0;
   try {
     const t0 = AC.currentTime;
-    [[784, 0], [1175, 0.11]].forEach(([f, d]) => {
+    [[784, 0], [1175, 0.09]].forEach(([f, d]) => {
       const o = AC.createOscillator(), g = AC.createGain();
       o.type = 'sine'; o.frequency.value = f;
-      g.gain.setValueAtTime(0.0001, t0 + d); g.gain.exponentialRampToValueAtTime(0.22, t0 + d + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 0.32);
-      o.connect(g).connect(AC.destination); o.start(t0 + d); o.stop(t0 + d + 0.36);
+      g.gain.setValueAtTime(0.0001, t0 + d); g.gain.exponentialRampToValueAtTime(0.2, t0 + d + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 0.22);
+      o.connect(g).connect(AC.destination); o.start(t0 + d); o.stop(t0 + d + 0.25);
     });
-  } catch {}
+    return 340;
+  } catch { return 0; }
 }
 
 /* ---------------- AI: libraries, model, inference ---------------- */
@@ -1045,7 +1146,8 @@ async function loop() {
   const t0 = now();
   try {
     const idleAdmin = state.view === 'admin' && !['train', 'eval'].includes(state.adminTab);
-    if (!document.hidden && AI.ready && state.stream && !idleAdmin) {
+    const talking = state.view === 'kiosk' && isSpeaking();
+    if (!document.hidden && AI.ready && state.stream && !idleAdmin && !talking) {
       if (state.testing) await evalTick();
       else {
         const p = await predictFrame();
@@ -1085,10 +1187,13 @@ function onPrediction(p) {
   const t0 = det.t0, conf = p.conf, mode = p.mode;
   let logged = false;
   const log = () => { if (logged) return; logged = true; logEvent({ type: 'sort', item: item.id, bin: bin.id, conf: +conf.toFixed(3), ms: Math.round(now() - t0), mode }); };
-  chime();
-  const said = speak(nudgeText(item, bin), { onstart: log });
-  if (!said) log();
-  setTimeout(log, 4000);
+  const text = nudgeText(item, bin);
+  const gap = chime();
+  if (gap) {
+    speech.busy = true; speech.busyUntil = now() + gap + 600;          // hold the voice channel during the chime
+    setTimeout(() => { speech.busy = false; if (!speak(text, { onstart: log })) log(); }, gap);
+  } else if (!speak(text, { onstart: log })) log();
+  setTimeout(log, 5000);
 }
 function nudgeText(item, bin, lang = L()) {
   const tpl = lang === 'en' ? S.tplEn : S.tplTh;
@@ -1235,7 +1340,7 @@ function toggleMic() {
   rec.onresult = e => { let s = ''; for (const r of e.results) { s += r[0].transcript; if (r.isFinal) finalText = s; } $('#ask').value = s; };
   rec.onerror = e => { if (e.error !== 'aborted' && e.error !== 'no-speech') toast(t('micErr')); };
   rec.onend = () => { btn.classList.remove('rec'); rec = null; if (finalText) sendChat(finalText); };
-  try { speechSynthesis.cancel(); } catch {}
+  stopSpeech();
   try { rec.start(); } catch { btn.classList.remove('rec'); rec = null; }
 }
 
@@ -1275,7 +1380,7 @@ function checkPin() {
   else { pinBuf = ''; drawPin(true); }
 }
 function openAdmin(tab) {
-  state.view = 'admin'; hideResult(); try { speechSynthesis.cancel(); } catch {}
+  state.view = 'admin'; hideResult(); stopSpeech();
   $('#admin').hidden = false; showTab(tab || state.adminTab);
 }
 function closeAdmin() {
@@ -1596,12 +1701,14 @@ function tabSettings() {
   <div class="panel grid2">
     <div><div class="field"><label for="voiceTh">เสียงภาษาไทย</label><select id="voiceTh" data-set="voiceTh"></select></div>
     <div class="field"><label for="voiceEn">เสียงภาษาอังกฤษ</label><select id="voiceEn" data-set="voiceEn"></select></div>
-    ${rangeField('voiceRate', 'ความเร็วเสียงพูด', 0.7, 1.4, 0.05, 'x', '')}
-    ${sw('speakTips', 'พูดคำแนะนำเพิ่มเติม', 'เช่น เทน้ำออกก่อน')}</div>
+    ${rangeField('voiceRate', 'ความเร็วเสียงพูด', 0.7, 1.3, 0.05, 'x', 'แนะนำ 0.9-1.0 ฟังชัดสำหรับเด็กและผู้สูงอายุ')}
+    ${rangeField('voicePitch', 'ระดับเสียง (สูง-ต่ำ)', 0.8, 1.3, 0.05, 'x', 'ค่า 1.0 เป็นเสียงธรรมชาติที่สุด')}
+    ${sw('speakTips', 'พูดคำแนะนำเพิ่มเติม', 'เช่น เทน้ำออกก่อน')}
+    ${sw('chime', 'เสียงกริ่งก่อนพูด', 'ดึงความสนใจก่อนบอกถัง ระบบรอให้กริ่งจบก่อนจึงพูด เสียงจะไม่ขาดหัว')}</div>
     <div><div class="field"><label for="tplTh">ประโยคแจ้งเตือน (ไทย)</label><input type="text" id="tplTh" data-set="tplTh" value="${esc(S.tplTh)}"><small>ใช้ {item} {bin} {type}</small></div>
     <div class="field"><label for="tplEn">ประโยคแจ้งเตือน (อังกฤษ)</label><input type="text" id="tplEn" data-set="tplEn" value="${esc(S.tplEn)}"></div>
     <div class="inline"><button type="button" class="btn" data-act="testvoice">ทดสอบเสียงไทย</button><button type="button" class="btn" data-act="testvoiceen">ทดสอบเสียงอังกฤษ</button></div>
-    <p class="muted" id="voiceNote" style="font-size:14.5px"></p></div>
+    <div id="voiceNote"></div></div>
   </div>
   <h4>กล้องและโมเดล</h4>
   <div class="panel grid2">
@@ -1631,16 +1738,38 @@ function tabSettings() {
     </div>
   </div>`;
 }
-async function fillSettingsAsync() {
-  loadVoices();
+function voiceLabel(v, lang, best) {
+  const i = voiceInfo(v, lang); const tags = [];
+  if (best && v.voiceURI === best.voiceURI) tags.push('★ แนะนำ');
+  if (i.female) tags.push('หญิง'); else if (i.male) tags.push('ชาย');
+  if (i.natural) tags.push('เสียงธรรมชาติ');
+  if (i.online) tags.push('ใช้เน็ต');
+  return `${v.name}${tags.length ? ' (' + tags.join(', ') + ')' : ''}`;
+}
+function fillVoiceSelects() {
   const fill = (id, lang, cur) => {
     const sel = $(id); if (!sel) return;
-    const vs = VOICES.filter(v => v.lang && v.lang.toLowerCase().replace('_', '-').startsWith(lang));
-    sel.innerHTML = `<option value="">อัตโนมัติ</option>` + vs.map(v => `<option value="${esc(v.voiceURI)}" ${v.voiceURI === cur ? 'selected' : ''}>${esc(v.name)} (${esc(v.lang)})</option>`).join('');
+    const vs = voicesFor(lang), best = vs[0];
+    sel.innerHTML = `<option value="">อัตโนมัติ: เลือกเสียงผู้หญิงที่ชัดที่สุด${best ? ' (' + esc(best.name) + ')' : ''}</option>` +
+      vs.map(v => `<option value="${esc(v.voiceURI)}" ${v.voiceURI === cur ? 'selected' : ''}>${esc(voiceLabel(v, lang, best))}</option>`).join('');
   };
   fill('#voiceTh', 'th', S.voiceTh); fill('#voiceEn', 'en', S.voiceEn);
-  const vn = $('#voiceNote');
-  if (vn) vn.textContent = VOICES.some(v => /^th/i.test(v.lang)) ? '' : 'ไม่พบเสียงภาษาไทยในเครื่อง: Android ให้ติดตั้งข้อมูลเสียงภาษาไทยใน การตั้งค่า > การเข้าถึง > เอาต์พุตการอ่านออกเสียง (Google TTS)';
+  const vn = $('#voiceNote'); if (!vn) return;
+  const th = pickVoice('th'), ua = navigator.userAgent;
+  const isEdge = /Edg\//.test(ua), isAndroid = /Android/.test(ua), isIOS = /iPad|iPhone|Macintosh/.test(ua) && 'ontouchend' in document, isWin = /Windows/.test(ua);
+  let msg = '';
+  if (!th) msg = isAndroid ? 'ไม่พบเสียงภาษาไทยในเครื่อง: ไปที่ การตั้งค่า > การช่วยเหลือพิเศษ > เอาต์พุตการอ่านออกเสียง เลือกเครื่องมือ Google แล้วติดตั้งข้อมูลเสียงภาษาไทย จากนั้นปิดเปิด Chrome ใหม่'
+    : isIOS ? 'ไม่พบเสียงภาษาไทย: ไปที่ การตั้งค่า > การช่วยการเข้าถึง > เนื้อหาที่ถูกพูด > เสียง > ไทย แล้วดาวน์โหลดเสียง Kanya'
+    : 'ไม่พบเสียงภาษาไทยในเครื่องนี้ แนะนำเปิดแอปด้วย Microsoft Edge ซึ่งมีเสียง Premwadee (ผู้หญิง เสียงธรรมชาติ)';
+  else if (!voiceInfo(th, 'th').natural) {
+    if (isWin && !isEdge) msg = 'อยากได้เสียงผู้หญิงที่เป็นธรรมชาติกว่านี้: เปิดลิงก์แอปด้วย Microsoft Edge แล้วเลือกเสียง Microsoft Premwadee Online (Natural) ต้องต่ออินเทอร์เน็ต ถ้าเน็ตหลุด ระบบจะสลับไปใช้เสียงในเครื่องให้อัตโนมัติ';
+    else if (isAndroid) msg = 'Android ใช้เสียงไทยของ Google ในเครื่อง ถ้าต้องการเปลี่ยนน้ำเสียง ไปที่ การตั้งค่า > การช่วยเหลือพิเศษ > เอาต์พุตการอ่านออกเสียง > Google > ภาษาไทย แล้วเลือกเสียงที่ชอบ';
+    else if (isIOS) msg = 'iPad: ดาวน์โหลดเสียง Kanya (ปรับปรุง) ใน การตั้งค่า > การช่วยการเข้าถึง > เนื้อหาที่ถูกพูด > เสียง > ไทย จะชัดและนุ่มกว่าเดิม';
+  }
+  vn.innerHTML = `<p class="muted" style="font-size:14.5px;margin:10px 0 0">กำลังใช้: <b>${th ? esc(th.name) : 'ค่าเริ่มต้นของเครื่อง'}</b></p>` + (msg ? `<p class="note" style="font-size:14.5px">${esc(msg)}</p>` : '');
+}
+async function fillSettingsAsync() {
+  loadVoices(); fillVoiceSelects();
   try {
     const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
     const sel = $('#camSel'); if (sel) sel.innerHTML = `<option value="">อัตโนมัติ (กล้องหน้า)</option>` + devs.map((d, i) => `<option value="${esc(d.deviceId)}" ${d.deviceId === S.cameraId ? 'selected' : ''}>${esc(d.label || 'กล้อง ' + (i + 1))}</option>`).join('');
@@ -1698,8 +1827,8 @@ function bindAdmin() {
       else if (act === 'evcsv2') { const ev = await DB.all('events'); download('ecosort-usage-log.csv', csv([['time', 'type', 'item', 'item_name', 'bin', 'confidence', 'latency_ms', 'mode', 'online', 'lang'], ...ev.map(e => [dstr(e.t), e.type, e.item || '', itemById(e.item)?.th || '', e.bin || '', e.conf ?? '', e.ms ?? '', e.mode || '', e.online ?? '', e.lang || ''])]), 'text/csv'); }
       else if (act === 'svcsv') { const sv = await DB.all('survey'); download('ecosort-survey.csv', csv([['time', 'respondent', 'ease_of_use', 'usefulness', 'intention', 'lang'], ...sv.map(r => [dstr(r.t), r.who, r.ease, r.useful, r.intent, r.lang])]), 'text/csv'); }
       else if (act === 'clearstats') { if (confirm('ล้างสถิติและแบบประเมินทั้งหมด? (ควรส่งออก CSV ก่อน)')) { await DB.clear('events'); await DB.clear('survey'); loadStats(); } }
-      else if (act === 'testvoice') { speak('ขวดน้ำพลาสติก ทิ้งลงถังสีเหลือง ขยะรีไซเคิลค่ะ', { lang: 'th', force: true }); }
-      else if (act === 'testvoiceen') { speak('Plastic bottle: please use the yellow bin for recyclables.', { lang: 'en', force: true }); }
+      else if (act === 'testvoice') { speak('สวัสดีค่ะ ยินดีต้อนรับสู่มาลัยฟาร์ม ขวดน้ำพลาสติก ทิ้งลงถังสีเหลือง ขยะรีไซเคิลค่ะ เทน้ำออกให้หมดก่อนนะคะ ขอบคุณที่ช่วยกันแยกขยะค่ะ', { lang: 'th', force: true }); }
+      else if (act === 'testvoiceen') { speak('Hello and welcome to Malai Farm. Plastic bottle: please use the yellow bin for recyclables. Thank you for sorting your waste.', { lang: 'en', force: true }); }
       else if (act === 'restartcam') { await startCamera().then(() => toast('เริ่มกล้องใหม่แล้ว')).catch(err => toast(camErrorText(err), 5000)); }
       else if (act === 'reloadmodel') { await reloadModel(); }
       else if (act === 'fullscreen') { goFullscreen(); }
@@ -1737,7 +1866,7 @@ function bindAdmin() {
     if (el.id === 'camSel') { S.cameraId = el.value; saveSettings(); startCamera().catch(err => toast(camErrorText(err), 5000)); }
     if (el.id === 'modelSize') { S.modelSize = el.value; saveSettings(); }
     if (el.id === 'evTrue') state.evalTrue = el.value;
-    if (el.dataset.set && el.tagName === 'SELECT') { S[el.dataset.set] = el.value; saveSettings(); }
+    if (el.dataset.set && el.tagName === 'SELECT') { S[el.dataset.set] = el.value; saveSettings(); if (/^voice/.test(el.dataset.set)) fillVoiceSelects(); }
   });
 }
 function pickFile(cb) {
@@ -1796,7 +1925,7 @@ function registerSW() {
 function bindUI() {
   $('#startBtn').addEventListener('click', startStation);
   $('#langBtn').addEventListener('click', () => { S.lang = L() === 'th' ? 'en' : 'th'; saveSettings(); applyI18n(); renderBins(); renderChips(); resetChat(); hideResult(); updateModeBadge(); });
-  $('#muteBtn').addEventListener('click', () => { S.muted = !S.muted; saveSettings(); setMuteIcon(); if (S.muted) try { speechSynthesis.cancel(); } catch {} });
+  $('#muteBtn').addEventListener('click', () => { S.muted = !S.muted; saveSettings(); setMuteIcon(); if (S.muted) stopSpeech(); });
   $('#adminBtn').addEventListener('click', openPin);
   $('#keypad').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) pinKey(b.dataset.k); });
   $('#pinCancel').addEventListener('click', () => { $('#pinDlg').hidden = true; });
