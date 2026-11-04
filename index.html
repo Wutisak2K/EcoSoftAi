@@ -1,0 +1,1858 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>EcoSort GuideBot | สถานีแยกขยะอัจฉริยะ มาลัยฟาร์ม ชะอำ</title>
+<meta name="description" content="ระบบคัดแยกขยะอัจฉริยะผสานแชตบอตแนะนำการท่องเที่ยวเชิงนิเวศ (EcoSort GuideBot) วิทยาลัยการอาชีพวังไกลกังวล ๒">
+<meta name="theme-color" content="#163A2B">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2048%2048%27%3E%3Cpath%20d%3D%27M9%204h30a7%207%200%200%201%207%207v19a7%207%200%200%201-7%207H23l-9%207v-7H9a7%207%200%200%201-7-7V11a7%207%200%200%201%207-7z%27%20fill%3D%27%232C7A50%27/%3E%3Cpath%20d%3D%27M14%2030C14%2020%2021%2013.5%2034%2013c0%2012-7%2018.5-16%2018.5-1.4%200-2.8-.3-4-.8z%27%20fill%3D%27%23fff%27/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://storage.googleapis.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&family=Mitr:wght@400;500;600&display=swap">
+<style>
+/* ===== EcoSort GuideBot ===== */
+:root{
+  --ink:#163A2B;          /* pasture ink: text, header */
+  --meadow:#2C7A50;       /* primary actions */
+  --meadow-d:#215E3D;
+  --haze:#EDF3EE;         /* page background */
+  --paper:#FFFFFF;
+  --line:#D5E1D7;
+  --muted:#5D7568;
+  --sun:#F4B63F;          /* focus ring / attention */
+  --danger:#B42318;
+  --cam:#0F2219;
+  --r-lg:22px; --r-md:14px; --r-sm:10px;
+  --f-display:"Mitr","Kanit",Tahoma,"Leelawadee UI",sans-serif;
+  --f-body:"IBM Plex Sans Thai Looped","IBM Plex Sans Thai","Sarabun",Tahoma,"Leelawadee UI",sans-serif;
+  --shadow:0 1px 0 rgba(22,58,43,.06),0 8px 24px -12px rgba(22,58,43,.25);
+  --bins-h:168px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--haze);color:var(--ink);font:400 18px/1.55 var(--f-body);-webkit-text-size-adjust:100%}
+body{overflow:hidden;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.kiosk-lock{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea,select{-webkit-user-select:text;user-select:text}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+[hidden]{display:none!important}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+svg.i{width:1.2em;height:1.2em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- app grid ---------- */
+.app{height:100vh;height:100dvh;display:grid;grid-template-rows:auto 1fr var(--bins-h);grid-template-columns:minmax(0,1.38fr) minmax(320px,1fr);grid-template-areas:"top top" "scan guide" "bins bins";gap:14px;padding:14px 16px 0}
+.topbar{grid-area:top;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand-mark{width:46px;height:46px;flex:none}
+.brand h1{margin:0;font:600 24px/1.1 var(--f-display);letter-spacing:.2px}
+.brand p{margin:2px 0 0;font-size:15px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top-actions{display:flex;align-items:center;gap:8px}
+.net{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;background:var(--paper);border:1px solid var(--line);font-size:14px;color:var(--muted)}
+.net::before{content:"";width:9px;height:9px;border-radius:50%;background:#2E9E4F}
+.net.off::before{background:#C9862A}
+.icon-btn{display:inline-grid;place-items:center;min-width:48px;height:48px;padding:0 12px;border-radius:14px;border:1px solid var(--line);background:var(--paper);font:500 16px var(--f-display);color:var(--ink)}
+.icon-btn:active{transform:translateY(1px)}
+.icon-btn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+/* ---------- scanner ---------- */
+.scanner{grid-area:scan;display:flex;flex-direction:column;min-height:0}
+.cam{position:relative;flex:1;min-height:0;background:var(--cam);border-radius:var(--r-lg);overflow:hidden;isolation:isolate}
+.cam video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cam video.mirror{transform:scaleX(-1)}
+.scanbox{position:absolute;top:50%;left:50%;width:60%;aspect-ratio:1;transform:translate(-50%,-50%);pointer-events:none;z-index:2}
+.scanbox i{position:absolute;width:44px;height:44px;border:5px solid rgba(255,255,255,.92);border-radius:4px}
+.scanbox i:nth-child(1){top:0;left:0;border-right:0;border-bottom:0;border-top-left-radius:18px}
+.scanbox i:nth-child(2){top:0;right:0;border-left:0;border-bottom:0;border-top-right-radius:18px}
+.scanbox i:nth-child(3){bottom:0;left:0;border-right:0;border-top:0;border-bottom-left-radius:18px}
+.scanbox i:nth-child(4){bottom:0;right:0;border-left:0;border-top:0;border-bottom-right-radius:18px}
+.cam.hit .scanbox i{border-color:var(--hit,#fff);transition:border-color .2s}
+.cam-msg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;color:#d8e8de;font:500 20px/1.5 var(--f-display);z-index:3;background:rgba(15,34,25,.55)}
+.cam-msg small{display:block;font:400 15px/1.5 var(--f-body);color:#a9c4b4;margin-top:6px}
+.mode-badge{position:absolute;top:14px;left:14px;z-index:4;padding:6px 12px;border-radius:999px;background:rgba(15,34,25,.72);color:#f3e2b8;font-size:14px;backdrop-filter:blur(4px)}
+.live-dot{position:absolute;top:14px;right:14px;z-index:4;display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:rgba(15,34,25,.72);color:#cfe3d6;font-size:14px}
+.live-dot::before{content:"";width:9px;height:9px;border-radius:50%;background:#53d18a;animation:blink 1.6s infinite}
+@keyframes blink{50%{opacity:.25}}
+
+.result{position:absolute;left:16px;right:16px;bottom:16px;z-index:5;display:grid;grid-template-columns:auto 1fr;gap:4px 16px;align-items:center;padding:16px 20px;border-radius:18px;background:var(--paper);box-shadow:0 18px 40px -18px rgba(0,0,0,.6);transform:translateY(130%);transition:transform .35s cubic-bezier(.2,.9,.25,1.2)}
+.result.show{transform:none}
+.result .swatch{grid-row:span 2;width:62px;height:62px;border-radius:16px;background:var(--hit,#999);display:grid;place-items:center;color:var(--hit-ink,#fff)}
+.result .swatch svg{width:34px;height:34px}
+.result .item{font:600 clamp(26px,3.4vw,40px)/1.15 var(--f-display);margin:0}
+.result .where{font:500 clamp(17px,1.9vw,22px)/1.3 var(--f-display);color:var(--muted);margin:0}
+.result .where b{color:var(--ink);font-weight:600}
+.result .tip{grid-column:1/-1;margin:6px 0 0;font-size:16px;color:var(--muted)}
+.result .tip:empty{display:none}
+.hint{margin:10px 4px 2px;font:500 17px/1.4 var(--f-display);color:var(--muted);display:flex;gap:8px;align-items:center}
+
+/* ---------- guide / chat ---------- */
+.guide{grid-area:guide;display:flex;flex-direction:column;min-height:0;background:var(--paper);border-radius:var(--r-lg);border:1px solid var(--line);overflow:hidden}
+.guide-head{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.guide-head .avatar{width:44px;height:44px;flex:none}
+.guide-head h2{margin:0;font:600 19px/1.2 var(--f-display)}
+.guide-head p{margin:2px 0 0;font-size:14px;color:var(--muted)}
+.guide-head .grow{flex:1;min-width:0}
+.chat{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth;overscroll-behavior:contain}
+.msg{max-width:88%;padding:10px 14px;border-radius:16px;font-size:17px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
+.msg.bot{align-self:flex-start;background:#EAF2EC;border-bottom-left-radius:6px}
+.msg.user{align-self:flex-end;background:var(--meadow);color:#fff;border-bottom-right-radius:6px}
+.msg .tag{display:inline-block;margin-top:6px;font-size:12.5px;color:var(--muted);background:#fff;border-radius:6px;padding:1px 7px}
+.msg.typing{display:flex;gap:5px;padding:14px 16px}
+.msg.typing i{width:8px;height:8px;border-radius:50%;background:#89a796;animation:bob 1s infinite}
+.msg.typing i:nth-child(2){animation-delay:.15s}.msg.typing i:nth-child(3){animation-delay:.3s}
+@keyframes bob{50%{transform:translateY(-5px);opacity:.5}}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:4px 16px 10px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:9px 14px;border-radius:999px;border:1.5px solid var(--line);background:var(--paper);font-size:15.5px;white-space:nowrap}
+.chip:active{background:var(--haze)}
+.composer{display:flex;gap:8px;padding:10px 12px 12px;border-top:1px solid var(--line)}
+.composer input{flex:1;min-width:0;height:52px;padding:0 16px;border-radius:14px;border:1.5px solid var(--line);background:#F7FAF8;font-size:17px}
+.composer input:focus{border-color:var(--meadow);outline:none;background:#fff}
+.send{width:52px;height:52px;border-radius:14px;border:0;background:var(--meadow);color:#fff;display:grid;place-items:center}
+.send:disabled{opacity:.5}
+.mic{width:52px;height:52px;border-radius:14px;border:1.5px solid var(--line);background:#fff;display:grid;place-items:center;color:var(--ink)}
+.mic.rec{background:#FCE8E6;border-color:#E9A39C;color:var(--danger)}
+.rate-link{border:0;background:none;color:var(--meadow);font:500 14px var(--f-display);text-decoration:underline;text-underline-offset:3px;padding:6px}
+
+/* ---------- bins: the lids of the real bins below the screen ---------- */
+.bins{grid-area:bins;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:12px;align-items:end;padding:10px 0 0}
+.bin{position:relative;min-width:0;height:calc(var(--bins-h) - 22px);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:4px;padding:22px 8px 10px;border-radius:26px 26px 0 0;background:var(--c);color:var(--ink-on);text-align:center;transition:transform .35s cubic-bezier(.2,.9,.25,1.3),opacity .3s,filter .3s}
+.bin::before{content:"";position:absolute;top:8px;left:50%;width:56px;height:7px;margin-left:-28px;border-radius:7px;background:rgba(0,0,0,.18)}
+.bin svg{width:34px;height:34px}
+.bin .type{font:600 clamp(16px,1.7vw,21px)/1.15 var(--f-display);overflow-wrap:anywhere}
+.bin .name{font-size:14px;opacity:.85;line-height:1.2}
+.bin .arrow{position:absolute;bottom:-4px;left:50%;width:0;height:0;margin-left:-16px;border:16px solid transparent;border-top:18px solid var(--ink-on);opacity:0}
+.bins.focus .bin{opacity:.32;filter:saturate(.6)}
+.bins.focus .bin.hit{opacity:1;filter:none;transform:translateY(-12px);box-shadow:0 0 0 5px #fff,0 0 0 9px var(--c)}
+.bins.focus .bin.hit .arrow{opacity:1;animation:point .8s ease-in-out infinite}
+@keyframes point{50%{transform:translateY(7px)}}
+
+/* ---------- overlays ---------- */
+.overlay{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:24px;background:rgba(15,34,25,.55)}
+.start{background:var(--ink);color:#EAF4EC;z-index:60}
+.start-inner{max-width:620px;text-align:center}
+.start-inner .logo{width:120px;height:120px;margin:0 auto 18px}
+.start-inner h2{font:600 clamp(32px,5vw,48px)/1.15 var(--f-display);margin:0 0 8px}
+.start-inner p{margin:0 auto 26px;max-width:46ch;color:#b9d2c2;font-size:19px}
+.big-btn{display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:72px;padding:0 40px;border:0;border-radius:20px;background:var(--sun);color:#2b2205;font:600 24px var(--f-display);box-shadow:0 10px 0 -2px #c88d1d}
+.big-btn:active{transform:translateY(4px);box-shadow:0 6px 0 -2px #c88d1d}
+.big-btn small{font:500 16px var(--f-body);opacity:.75}
+.load-list{list-style:none;margin:26px auto 0;padding:0;max-width:420px;text-align:left;font-size:16px;color:#b9d2c2}
+.load-list li{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+.load-list li b{font-weight:500;color:#EAF4EC}
+.load-list .ok{color:#7fe0a6}.load-list .err{color:#f3a59c}
+
+.dialog{width:min(440px,100%);background:var(--paper);border-radius:var(--r-lg);padding:24px;box-shadow:0 30px 60px -20px rgba(0,0,0,.5)}
+.dialog h3{margin:0 0 6px;font:600 22px var(--f-display)}
+.dialog p{margin:0 0 14px;color:var(--muted);font-size:16px}
+.pin-dots{display:flex;justify-content:center;gap:14px;margin:12px 0 18px}
+.pin-dots i{width:16px;height:16px;border-radius:50%;border:2px solid var(--ink)}
+.pin-dots i.f{background:var(--ink)}
+.pin-dots.bad{animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.keypad button{height:62px;border-radius:14px;border:1px solid var(--line);background:#F5F8F6;font:500 24px var(--f-display)}
+.keypad button:active{background:var(--line)}
+
+.survey .dialog{width:min(620px,100%)}
+.q{margin:14px 0}
+.q label{display:block;font:500 18px var(--f-display);margin-bottom:8px}
+.faces{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.faces button{height:64px;border-radius:14px;border:2px solid var(--line);background:#fff;font-size:30px;line-height:1}
+.faces button[aria-pressed=true]{border-color:var(--meadow);background:#E3F1E8}
+.faces small{display:block;font:400 12px var(--f-body);color:var(--muted);margin-top:2px}
+.seg{display:inline-flex;border:1.5px solid var(--line);border-radius:12px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:10px 16px;font-size:16px}
+.seg button[aria-pressed=true]{background:var(--ink);color:#fff}
+.row-end{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;flex-wrap:wrap}
+
+.toast{position:fixed;left:50%;bottom:calc(var(--bins-h) + 20px);z-index:90;transform:translate(-50%,20px);opacity:0;pointer-events:none;max-width:min(560px,90vw);padding:12px 18px;border-radius:14px;background:var(--ink);color:#fff;font-size:16px;transition:.25s;text-align:center}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* ---------- buttons (admin + dialogs) ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 18px;border-radius:12px;border:1.5px solid var(--line);background:#fff;font:500 16px var(--f-display);color:var(--ink);text-decoration:none}
+.btn.primary{background:var(--meadow);border-color:var(--meadow);color:#fff}
+.btn.dark{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn.danger{color:var(--danger);border-color:#EBC3BE}
+.btn.small{min-height:38px;padding:0 12px;font-size:14.5px;border-radius:10px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* ---------- admin ---------- */
+.admin{position:fixed;inset:0;z-index:70;display:grid;grid-template-columns:232px 1fr;background:var(--haze)}
+.admin-nav{background:var(--ink);color:#d6e7dc;padding:18px 12px;display:flex;flex-direction:column;gap:4px;overflow-y:auto}
+.admin-nav h2{font:600 19px var(--f-display);color:#fff;margin:4px 10px 14px}
+.admin-nav button{display:flex;align-items:center;gap:10px;text-align:left;border:0;background:none;color:inherit;padding:12px 12px;border-radius:12px;font:500 16.5px var(--f-display)}
+.admin-nav button[aria-current=true]{background:rgba(255,255,255,.12);color:#fff}
+.admin-nav .spacer{flex:1}
+.admin-main{overflow-y:auto;padding:24px clamp(16px,3vw,36px) 60px;-webkit-user-select:text;user-select:text}
+.admin-main h3{font:600 26px var(--f-display);margin:0 0 4px}
+.admin-main h4{font:600 19px var(--f-display);margin:26px 0 10px}
+.lead{color:var(--muted);margin:0 0 18px;max-width:72ch}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:18px;margin-bottom:16px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+.train-grid{display:grid;grid-template-columns:minmax(260px,min(400px,calc(100vh - 330px))) 1fr;gap:18px;align-items:start}
+.preview{position:relative;aspect-ratio:1;border-radius:var(--r-md);overflow:hidden;background:var(--cam)}
+.preview video{width:100%;height:100%;object-fit:cover}
+.preview video.mirror{transform:scaleX(-1)}
+.preview .flash{position:absolute;inset:0;box-shadow:inset 0 0 0 0 var(--sun);transition:box-shadow .08s}
+.preview.cap .flash{box-shadow:inset 0 0 0 8px var(--sun)}
+.preview .seen{position:absolute;left:10px;right:10px;bottom:10px;padding:8px 12px;border-radius:10px;background:rgba(15,34,25,.78);color:#fff;font-size:15px}
+.capture-btn{width:100%;min-height:68px;margin-top:12px;border-radius:16px;border:0;background:var(--sun);color:#2b2205;font:600 20px var(--f-display);box-shadow:0 6px 0 -1px #c88d1d;touch-action:none}
+.capture-btn.down{transform:translateY(3px);box-shadow:0 3px 0 -1px #c88d1d;background:#f0a92a}
+.capture-btn:disabled{opacity:.5}
+.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(176px,1fr));gap:10px}
+.item-card{position:relative;display:flex;gap:10px;align-items:center;text-align:left;padding:10px;border-radius:12px;border:1.5px solid var(--line);background:#fff;min-height:74px}
+.item-card[aria-pressed=true]{border-color:var(--meadow);box-shadow:0 0 0 3px #CFE6D7}
+.item-card img,.item-card .ph{width:52px;height:52px;border-radius:10px;object-fit:cover;flex:none;background:var(--haze);display:grid;place-items:center;color:var(--muted)}
+.item-card .nm{font:500 15.5px/1.25 var(--f-display)}
+.item-card .ct{font-size:13.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dot{width:11px;height:11px;border-radius:50%;display:inline-block;background:var(--c);box-shadow:0 0 0 1px rgba(0,0,0,.12)}
+.count-low{color:#9a5b0b}
+.steps{margin:0;padding-left:22px}
+.steps li{margin:4px 0}
+.steps li.done{color:var(--muted);text-decoration:line-through}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label,.field .lbl{font:500 15.5px var(--f-display)}
+.field small{color:var(--muted);font-size:14px}
+.field input[type=text],.field input[type=password],.field input[type=number],.field select,.field textarea{width:100%;min-height:46px;padding:10px 12px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font-size:16px}
+.field textarea{min-height:140px;resize:vertical;font-family:var(--f-body);line-height:1.5}
+.field input[type=range]{width:100%;accent-color:var(--meadow)}
+.inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.inline > input{flex:1;min-width:160px}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.switch:last-child{border-bottom:0}
+.switch input{width:22px;height:22px;accent-color:var(--meadow)}
+.switch span small{display:block;color:var(--muted);font-size:14px}
+.bin-row{display:grid;grid-template-columns:auto 54px 1fr 1fr auto;gap:10px;align-items:start;padding:12px 0;border-bottom:1px solid var(--line)}
+.bin-row:last-child{border-bottom:0}
+.bin-row input[type=color]{width:54px;height:46px;border:1px solid var(--line);border-radius:10px;padding:2px;background:#fff}
+.bin-row input[type=text]{width:100%;min-height:40px;padding:6px 10px;border-radius:9px;border:1.5px solid var(--line);font-size:15px;margin-bottom:6px}
+.bin-row .ord{display:flex;flex-direction:column;gap:4px}
+.cm{border-collapse:collapse;font-size:14px;margin-top:6px}
+.cm th,.cm td{border:1px solid var(--line);padding:6px 8px;text-align:center;min-width:44px}
+.cm th{background:#F3F7F4;font:500 13.5px var(--f-display)}
+.cm th.rowh{text-align:left;white-space:nowrap}
+.cm td.diag{font-weight:600}
+.table-wrap{overflow-x:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:6px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi b{display:block;font:600 28px/1.1 var(--f-display)}
+.kpi span{font-size:14px;color:var(--muted)}
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar{display:grid;grid-template-columns:150px 1fr 54px;gap:10px;align-items:center;font-size:15px}
+.bar .track{height:16px;border-radius:8px;background:#EEF3EF;overflow:hidden}
+.bar .fill{height:100%;border-radius:8px;background:var(--c,var(--meadow))}
+.bar .v{text-align:right;font-variant-numeric:tabular-nums}
+.note{padding:12px 14px;border-radius:12px;background:#FFF6E0;border:1px solid #F1D79A;color:#5c4510;font-size:15px;margin:10px 0}
+.note.ok{background:#E9F5EE;border-color:#BFDDC9;color:#1f4d33}
+.note.err{background:#FDECEA;border-color:#F1BDB7;color:#7a1d14}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px}
+.muted{color:var(--muted)}
+
+/* ---------- responsive ---------- */
+@media (orientation:portrait),(max-width:900px){
+  :root{--bins-h:136px}
+  .app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1.15fr) var(--bins-h) minmax(0,1fr);grid-template-areas:"top" "scan" "bins" "guide";padding:10px 10px 10px;gap:10px}
+  .bins{padding:0}
+  .bin{height:calc(var(--bins-h) - 10px);border-radius:20px;padding-top:18px}
+  .bin .name{display:none}
+  .bin .arrow{display:none}
+  .bins.focus .bin.hit{transform:translateY(-4px)}
+  .brand p{display:none}
+  .toast{bottom:24px}
+  .admin{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .admin-nav{flex-direction:row;overflow-x:auto;padding:8px;gap:2px}
+  .admin-nav h2,.admin-nav .spacer{display:none}
+  .admin-nav button{white-space:nowrap;padding:10px 12px;font-size:15px}
+  .train-grid,.grid2{grid-template-columns:1fr}
+  .bin-row{grid-template-columns:auto 48px 1fr;}
+  .bin-row > :nth-child(4){grid-column:3}
+}
+@media (max-width:560px){
+  .net{display:none}
+  .topbar{min-height:46px}
+  .top-actions{gap:6px}
+  .icon-btn{min-width:42px;height:42px;padding:0 8px;border-radius:12px}
+  .brand{gap:8px}
+  .brand-mark{width:38px;height:38px}
+  .bins{gap:6px}
+  .bin{padding:16px 4px 8px;border-radius:16px}
+  .bin::before{width:36px;margin-left:-18px}
+  .result{left:10px;right:10px;bottom:10px;padding:12px 14px;gap:2px 12px}
+  .result .swatch{width:48px;height:48px;border-radius:12px}
+  .hint{font-size:15px}
+  .brand h1{font-size:20px}
+  .msg{font-size:16px}
+  .bin svg{width:26px;height:26px}
+  .bin .type{font-size:13px;hyphens:auto;overflow-wrap:normal;word-break:normal}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+  <symbol id="i-vol" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></symbol>
+  <symbol id="i-volx" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="m23 9-6 6M17 9l6 6"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></symbol>
+  <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></symbol>
+  <symbol id="i-recycle" viewBox="0 0 24 24"><path d="M7 19H4.8a1.8 1.8 0 0 1-1.6-2.7L7.2 9.5"/><path d="M11 19h8.2a1.8 1.8 0 0 0 1.6-2.7l-1.3-2.1"/><path d="m14 16-3 3 3 3"/><path d="M8.3 13.6 7.2 9.5 3.1 10.6"/><path d="m9.3 5.8 1.1-1.9a1.8 1.8 0 0 1 3.1 0l3.9 6.8"/><path d="m13.4 9.6 4.1 1.1 1.1-4.1"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-med" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v9M7.5 12h9"/></symbol>
+  <symbol id="i-bottle" viewBox="0 0 24 24"><path d="M10 2h4v3l1.5 2.5V20a2 2 0 0 1-2 2h-3a2 2 0 0 1-2-2V7.5L10 5V2z"/><path d="M8.5 11h7"/></symbol>
+  <symbol id="i-cam" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></symbol>
+  <symbol id="i-test" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6L4.5 19a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L14 9V3"/><path d="M7 15h10"/></symbol>
+  <symbol id="i-bins" viewBox="0 0 24 24"><rect x="2" y="7" width="6" height="14" rx="1.5"/><rect x="9" y="7" width="6" height="14" rx="1.5"/><rect x="16" y="7" width="6" height="14" rx="1.5"/><path d="M2 4h20"/></symbol>
+  <symbol id="i-bot" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="3"/><path d="M12 4v4M8.5 13h.01M15.5 13h.01M9 17h6"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15v3M12 10v8M17 6v12"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></symbol>
+</svg>
+
+<div class="app kiosk-lock" id="app">
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true">
+        <path d="M9 4h30a7 7 0 0 1 7 7v19a7 7 0 0 1-7 7H23l-9 7v-7H9a7 7 0 0 1-7-7V11a7 7 0 0 1 7-7z" fill="#2C7A50"/>
+        <path d="M14 30C14 20 21 13.5 34 13c0 12-7 18.5-16 18.5-1.4 0-2.8-.3-4-.8z" fill="#fff"/>
+        <path d="M14.5 31.5c4-5.5 9-10 14.5-13" stroke="#2C7A50" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <h1>EcoSort GuideBot</h1>
+        <p id="placeLine" data-i18n="placeLine">สถานีแยกขยะอัจฉริยะ มาลัยฟาร์ม ชะอำ</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="net" id="net" data-i18n="online">ออนไลน์</span>
+      <button class="icon-btn" id="langBtn" type="button" aria-label="Switch language">EN</button>
+      <button class="icon-btn" id="muteBtn" type="button" aria-label="เปิด/ปิดเสียง"><svg class="i"><use href="#i-vol"/></svg></button>
+      <button class="icon-btn" id="adminBtn" type="button" aria-label="สำหรับผู้ดูแล"><svg class="i"><use href="#i-gear"/></svg></button>
+    </div>
+  </header>
+
+  <section class="scanner" aria-label="กล้องตรวจจับขยะ">
+    <div class="cam" id="cam">
+      <video id="video" playsinline muted autoplay></video>
+      <div class="scanbox" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <div class="mode-badge" id="modeBadge" hidden></div>
+      <div class="live-dot" id="liveDot" hidden data-i18n="aiOn">AI กำลังดู</div>
+      <div class="cam-msg" id="camMsg"><div><span data-i18n="preparing">กำลังเตรียมกล้องและ AI…</span></div></div>
+      <div class="result" id="result" role="status" aria-live="assertive">
+        <div class="swatch" id="rSwatch"><svg class="i"><use href="#i-recycle"/></svg></div>
+        <p class="item" id="rItem"></p>
+        <p class="where" id="rWhere"></p>
+        <p class="tip" id="rTip"></p>
+      </div>
+    </div>
+    <p class="hint" id="hint"><svg class="i"><use href="#i-bottle"/></svg><span data-i18n="hint">ยื่นขยะเข้ามาในกรอบ แล้วฟังว่าต้องทิ้งถังไหน</span></p>
+  </section>
+
+  <aside class="guide" aria-label="GuideBot">
+    <div class="guide-head">
+      <svg class="avatar" viewBox="0 0 48 48" aria-hidden="true">
+        <circle cx="24" cy="24" r="23" fill="#EAF2EC"/>
+        <rect x="11" y="15" width="26" height="20" rx="7" fill="#2C7A50"/>
+        <circle cx="19" cy="25" r="2.6" fill="#fff"/><circle cx="29" cy="25" r="2.6" fill="#fff"/>
+        <path d="M24 15c0-5 3-8 8-8-.3 4.6-3 7.6-8 8z" fill="#5FB57F"/>
+      </svg>
+      <div class="grow">
+        <h2 data-i18n="botTitle">ถาม GuideBot</h2>
+        <p id="botSub" data-i18n="botSub">ไกด์ช่วยตอบเรื่องเที่ยวมาลัยฟาร์มและการแยกขยะ</p>
+      </div>
+      <button class="rate-link" id="rateBtn" type="button" data-i18n="rate">ให้คะแนนระบบ</button>
+    </div>
+    <div class="chat" id="chat" aria-live="polite"></div>
+    <div class="chips" id="chips"></div>
+    <form class="composer" id="composer" autocomplete="off">
+      <button class="mic" id="micBtn" type="button" aria-label="พูดถาม" hidden><svg class="i"><use href="#i-mic"/></svg></button>
+      <input id="ask" type="text" maxlength="300" data-i18n-ph="askPh" placeholder="พิมพ์คำถาม เช่น ที่นี่มีสัตว์อะไรบ้าง">
+      <button class="send" id="sendBtn" type="submit" aria-label="ส่ง"><svg class="i"><use href="#i-send"/></svg></button>
+    </form>
+  </aside>
+
+  <footer class="bins" id="bins" aria-label="ถังขยะ"></footer>
+</div>
+
+<!-- start / unlock audio -->
+<div class="overlay start" id="start">
+  <div class="start-inner">
+    <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M9 4h30a7 7 0 0 1 7 7v19a7 7 0 0 1-7 7H23l-9 7v-7H9a7 7 0 0 1-7-7V11a7 7 0 0 1 7-7z" fill="#2C7A50"/>
+      <path d="M14 30C14 20 21 13.5 34 13c0 12-7 18.5-16 18.5-1.4 0-2.8-.3-4-.8z" fill="#fff"/>
+      <path d="M14.5 31.5c4-5.5 9-10 14.5-13" stroke="#2C7A50" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    </svg>
+    <h2>EcoSort GuideBot</h2>
+    <p>สถานีแยกขยะอัจฉริยะ ช่วยบอกว่าขยะชิ้นนี้ต้องทิ้งถังไหน พร้อมไกด์ตอบคำถามเรื่องเที่ยวชะอำ<br><span style="opacity:.8">Smart waste sorting station and eco-travel guide</span></p>
+    <button class="big-btn" id="startBtn" type="button">แตะเพื่อเริ่มใช้งาน <small>Tap to start</small></button>
+    <ul class="load-list" id="loadList" aria-live="polite"></ul>
+  </div>
+</div>
+
+<!-- PIN -->
+<div class="overlay" id="pinDlg" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="pinT">
+    <h3 id="pinT">สำหรับผู้ดูแลสถานี</h3>
+    <p>ใส่รหัส PIN 4–6 หลัก</p>
+    <div class="pin-dots" id="pinDots"></div>
+    <div class="keypad" id="keypad"></div>
+    <div class="row-end"><button class="btn" type="button" id="pinCancel">ยกเลิก</button></div>
+  </div>
+</div>
+
+<!-- Survey (TAM) -->
+<div class="overlay survey" id="survey" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="svT">
+    <h3 id="svT" data-i18n="svTitle">ช่วยให้คะแนนสถานีนี้หน่อย</h3>
+    <p data-i18n="svLead">ใช้เวลาไม่ถึง 30 วินาที ข้อมูลนี้ใช้ปรับปรุงโครงงานของนักเรียน</p>
+    <div class="q"><span class="lbl" data-i18n="svWho" style="font:500 16px var(--f-display);margin-right:10px">ฉันคือ</span>
+      <div class="seg" id="svWho"><button type="button" data-v="tourist" aria-pressed="true" data-i18n="svTourist">นักท่องเที่ยว</button><button type="button" data-v="staff" aria-pressed="false" data-i18n="svStaff">เจ้าหน้าที่/ผู้ดูแล</button></div>
+    </div>
+    <div class="q"><label data-i18n="svQ1">ใช้งานง่าย</label><div class="faces" data-q="ease"></div></div>
+    <div class="q"><label data-i18n="svQ2">ช่วยให้แยกขยะได้ถูกต้องและได้ความรู้</label><div class="faces" data-q="useful"></div></div>
+    <div class="q"><label data-i18n="svQ3">อยากให้มีสถานีแบบนี้ในที่เที่ยวอื่น ๆ</label><div class="faces" data-q="intent"></div></div>
+    <div class="row-end">
+      <button class="btn" type="button" id="svCancel" data-i18n="cancel">ยกเลิก</button>
+      <button class="btn primary" type="button" id="svSend" data-i18n="svSend" disabled>ส่งคะแนน</button>
+    </div>
+  </div>
+</div>
+
+<!-- Admin -->
+<div class="admin" id="admin" hidden>
+  <nav class="admin-nav" aria-label="เมนูผู้ดูแล">
+    <h2>ผู้ดูแลสถานี</h2>
+    <button type="button" data-tab="train"><svg class="i"><use href="#i-cam"/></svg>สอน AI</button>
+    <button type="button" data-tab="eval"><svg class="i"><use href="#i-test"/></svg>ทดสอบความแม่นยำ</button>
+    <button type="button" data-tab="bins"><svg class="i"><use href="#i-bins"/></svg>ถังขยะ</button>
+    <button type="button" data-tab="bot"><svg class="i"><use href="#i-bot"/></svg>GuideBot</button>
+    <button type="button" data-tab="stats"><svg class="i"><use href="#i-chart"/></svg>สถิติและแบบประเมิน</button>
+    <button type="button" data-tab="settings"><svg class="i"><use href="#i-sliders"/></svg>ตั้งค่าระบบ</button>
+    <div class="spacer"></div>
+    <button type="button" id="adminClose"><svg class="i"><use href="#i-x"/></svg>กลับหน้าสถานี</button>
+  </nav>
+  <main class="admin-main" id="adminMain"></main>
+</div>
+
+<input type="file" id="filePick" accept=".json,application/json" hidden>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+'use strict';
+/* =========================================================================
+   EcoSort GuideBot — ระบบคัดแยกขยะอัจฉริยะผสานแชตบอตแนะนำการท่องเที่ยวเชิงนิเวศ
+   วิทยาลัยการอาชีพวังไกลกังวล ๒ | ติดตั้งที่มาลัยฟาร์ม ต.เขาใหญ่ อ.ชะอำ จ.เพชรบุรี
+   Edge AI (TensorFlow.js + MobileNet + KNN) + Cloud LLM (Gemini API) + Web Speech API
+   ========================================================================= */
+const APP_VERSION = '1.0.0';
+
+/* ---------------- libraries & models ---------------- */
+const LIBS = {
+  tf: ['https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js',
+       'https://unpkg.com/@tensorflow/tfjs@4.22.0/dist/tf.min.js'],
+  knn: ['https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier@1.2.6/dist/knn-classifier.min.js',
+        'https://unpkg.com/@tensorflow-models/knn-classifier@1.2.6/dist/knn-classifier.min.js']
+};
+// MobileNet sources (Google-hosted). The trained KNN data is tied to the model it was taught with.
+const MODEL_SOURCES = {
+  'v1-100':   { label: 'MobileNet V1 (1.0)', url: 'https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v1_1.0_224/model.json', layer: 'conv_pw_13_relu', head: true },
+  'tmv2-100': { label: 'MobileNet V2 (1.0)', url: 'https://storage.googleapis.com/teachable-machine-models/mobilenet_v2_weights_tf_dim_ordering_tf_kernels_1.00_224_no_top/model.json', layer: 'out_relu', head: false },
+  'v1-050':   { label: 'MobileNet V1 (0.5) แบบเบา', url: 'https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v1_0.50_224/model.json', layer: 'conv_pw_13_relu', head: true },
+  'tmv2-035': { label: 'MobileNet V2 (0.35) แบบเบา', url: 'https://storage.googleapis.com/teachable-machine-models/mobilenet_v2_weights_tf_dim_ordering_tf_kernels_0.35_224_no_top/model.json', layer: 'out_relu', head: false },
+  'v1-025':   { label: 'MobileNet V1 (0.25) แบบเบามาก', url: 'https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v1_0.25_224/model.json', layer: 'conv_pw_13_relu', head: true }
+};
+const MODEL_ORDER = {
+  standard: ['v1-100', 'tmv2-100', 'v1-050', 'tmv2-035', 'v1-025'],
+  lite: ['v1-050', 'tmv2-035', 'v1-025', 'v1-100', 'tmv2-100']
+};
+const GEMINI_FALLBACKS = ['gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-3.6-flash', 'gemini-2.5-flash'];
+
+/* ---------------- default content ---------------- */
+const DEFAULT_BINS = [
+  { id: 'green',  on: true, color: '#1F7D43', icon: 'leaf',    name: { th: 'ถังสีเขียว', en: 'Green bin' },  type: { th: 'ขยะอินทรีย์', en: 'Organic waste' },
+    ex: { th: 'เศษอาหาร เปลือกผลไม้ ซังข้าวโพด ผักที่เหลือจากการให้อาหารสัตว์', en: 'Food scraps, fruit peel, corn cobs, leftover vegetables' } },
+  { id: 'yellow', on: true, color: '#F2C12E', icon: 'recycle', name: { th: 'ถังสีเหลือง', en: 'Yellow bin' }, type: { th: 'ขยะรีไซเคิล', en: 'Recyclables' },
+    ex: { th: 'ขวดพลาสติก กระป๋อง ขวดแก้ว แก้วพลาสติกที่เทน้ำออกแล้ว กระดาษแห้ง', en: 'Plastic bottles, cans, glass, emptied plastic cups, dry paper' } },
+  { id: 'blue',   on: true, color: '#2563B8', icon: 'trash',   name: { th: 'ถังสีน้ำเงิน', en: 'Blue bin' }, type: { th: 'ขยะทั่วไป', en: 'General waste' },
+    ex: { th: 'ซองขนม ถุงพลาสติกเปื้อน กล่องโฟม หลอด ช้อนพลาสติก ทิชชู่', en: 'Snack wrappers, dirty plastic bags, foam boxes, straws, tissues' } },
+  { id: 'orange', on: true, color: '#EF7D22', icon: 'warn',    name: { th: 'ถังสีส้ม', en: 'Orange bin' },   type: { th: 'ขยะอันตราย', en: 'Hazardous waste' },
+    ex: { th: 'ถ่านไฟฉาย แบตเตอรี่ หลอดไฟ กระป๋องสเปรย์ ไฟแช็ก', en: 'Batteries, light bulbs, spray cans, lighters' } },
+  { id: 'red',    on: true, color: '#C8322F', icon: 'med',     name: { th: 'ถังสีแดง', en: 'Red bin' },     type: { th: 'ขยะติดเชื้อ', en: 'Infectious waste' },
+    ex: { th: 'หน้ากากอนามัย ผ้าอ้อมสำเร็จรูป พลาสเตอร์ยา', en: 'Face masks, diapers, plasters' } }
+];
+const BG = '_bg';
+const DEFAULT_ITEMS = [
+  { id: BG, th: 'พื้นหลัง (ไม่มีขยะ)', en: 'Background (no item)', bin: null, tip: { th: '', en: '' }, kw: [] },
+  { id: 'pet_bottle', th: 'ขวดน้ำพลาสติก', en: 'Plastic bottle', bin: 'yellow', tip: { th: 'เทน้ำออกให้หมดก่อนนะคะ', en: 'Please empty it first.' }, kw: ['ขวดน้ำ', 'ขวดพลาสติก', 'ขวดน้ำอัดลม', 'bottle', 'pet'] },
+  { id: 'plastic_cup', th: 'แก้วพลาสติก', en: 'Plastic cup', bin: 'yellow', tip: { th: 'เทน้ำแข็งออก ส่วนหลอดทิ้งถังสีน้ำเงินนะคะ', en: 'Tip out the ice; the straw goes in the blue bin.' }, kw: ['แก้วพลาสติก', 'แก้วกาแฟ', 'แก้วชา', 'แก้วน้ำ', 'cup'] },
+  { id: 'can', th: 'กระป๋องเครื่องดื่ม', en: 'Drink can', bin: 'yellow', tip: { th: 'บีบให้แบนช่วยประหยัดที่ค่ะ', en: 'Squash it to save space.' }, kw: ['กระป๋อง', 'can', 'soda', 'beer'] },
+  { id: 'glass_bottle', th: 'ขวดแก้ว', en: 'Glass bottle', bin: 'yellow', tip: { th: 'วางเบา ๆ ระวังแตกนะคะ', en: 'Place it gently so it does not break.' }, kw: ['ขวดแก้ว', 'glass'] },
+  { id: 'paper', th: 'กระดาษ/กล่องกระดาษ', en: 'Paper or cardboard', bin: 'yellow', tip: { th: 'ถ้าเปียกหรือเปื้อนอาหาร ให้ทิ้งถังสีน้ำเงินค่ะ', en: 'If it is wet or greasy, use the blue bin.' }, kw: ['กระดาษ', 'กล่องกระดาษ', 'ลัง', 'paper', 'cardboard', 'box'] },
+  { id: 'foam', th: 'กล่องโฟม', en: 'Foam box', bin: 'blue', tip: { th: 'เทเศษอาหารลงถังสีเขียวก่อนนะคะ', en: 'Scrape food into the green bin first.' }, kw: ['โฟม', 'foam', 'styrofoam'] },
+  { id: 'snack_bag', th: 'ซองขนม/ถุงพลาสติก', en: 'Snack wrapper or plastic bag', bin: 'blue', tip: { th: 'ถุงพลาสติกอันตรายต่อสัตว์ในฟาร์ม ห้ามทิ้งในคอกนะคะ', en: 'Plastic bags can kill farm animals. Never drop them in the pens.' }, kw: ['ซองขนม', 'ถุงพลาสติก', 'ถุง', 'ซอง', 'wrapper', 'bag', 'snack'] },
+  { id: 'straw', th: 'หลอด/ช้อนพลาสติก', en: 'Straw or plastic cutlery', bin: 'blue', tip: { th: '', en: '' }, kw: ['หลอด', 'ช้อน', 'ส้อม', 'straw', 'spoon', 'fork'] },
+  { id: 'tissue', th: 'กระดาษทิชชู่', en: 'Tissue', bin: 'blue', tip: { th: '', en: '' }, kw: ['ทิชชู่', 'ทิชชู', 'tissue', 'napkin'] },
+  { id: 'food', th: 'เศษอาหาร/เปลือกผลไม้', en: 'Food scraps', bin: 'green', tip: { th: 'อย่านำเศษอาหารไปให้สัตว์ในฟาร์มนะคะ', en: 'Please do not feed leftovers to the farm animals.' }, kw: ['เศษอาหาร', 'อาหาร', 'เปลือก', 'ผลไม้', 'ซังข้าวโพด', 'ข้าวโพด', 'ผัก', 'กล้วย', 'food', 'peel', 'fruit', 'corn', 'banana'] },
+  { id: 'battery', th: 'ถ่านไฟฉาย/แบตเตอรี่', en: 'Battery', bin: 'orange', tip: { th: '', en: '' }, kw: ['ถ่าน', 'แบต', 'แบตเตอรี่', 'battery', 'หลอดไฟ', 'bulb', 'สเปรย์', 'spray', 'ไฟแช็ก', 'lighter'] },
+  { id: 'mask', th: 'หน้ากากอนามัย', en: 'Face mask', bin: 'red', tip: { th: 'พับด้านที่สัมผัสหน้าเข้าด้านในก่อนทิ้งค่ะ', en: 'Fold the inside surface inwards first.' }, kw: ['หน้ากาก', 'แมส', 'mask', 'ผ้าอ้อม', 'diaper', 'พลาสเตอร์', 'plaster'] }
+];
+// ImageNet class indices used by the "basic mode" (before the station is trained)
+const ZS_MAP = {
+  pet_bottle: [898, 737, 899],
+  glass_bottle: [440, 907, 901],
+  plastic_cup: [968, 441, 647],
+  paper: [478, 549, 917, 921, 922],
+  snack_bag: [692, 728],
+  tissue: [700, 999],
+  food: [924, 925, 927, 930, 931, 932, 933, 934, 936, 937, 938, 939, 940, 941, 942, 943, 944, 945, 947, 948, 949, 950, 951, 952, 953, 954, 955, 956, 957, 959, 962, 963, 964, 965, 987, 998],
+  battery: [626, 585, 720],
+  mask: [419, 529, 643, 691, 570, 845]
+};
+
+const DEFAULT_PROMPT = `คุณคือ "GuideBot" มัคคุเทศก์ AI ประจำสถานีแยกขยะอัจฉริยะ EcoSort ที่มาลัยฟาร์ม ต.เขาใหญ่ อ.ชะอำ จ.เพชรบุรี สร้างโดยนักเรียนสาขาวิชาการท่องเที่ยว วิทยาลัยการอาชีพวังไกลกังวล ๒
+บุคลิก: เป็นมิตร สุภาพ อบอุ่นแบบไกด์ท้องถิ่น ใช้ภาษาง่าย เหมาะกับครอบครัวและเด็ก
+กติกาการตอบ:
+1. ตอบสั้น กระชับ ไม่เกิน 3 ประโยค ไม่ใช้ markdown ตาราง หรือเครื่องหมาย *
+2. ตอบเป็นภาษาเดียวกับคำถาม (ภาษาไทยให้ลงท้ายด้วย "ค่ะ")
+3. ตอบเฉพาะเรื่องการท่องเที่ยว มาลัยฟาร์ม แหล่งท่องเที่ยวในชะอำและเพชรบุรี การท่องเที่ยวเชิงนิเวศ สิ่งแวดล้อม และการคัดแยกขยะ ถ้าถามเรื่องอื่นให้ปฏิเสธอย่างสุภาพแล้วชวนกลับมาเรื่องเที่ยวหรือแยกขยะ
+4. ใช้ "ข้อมูลสถานที่" ด้านล่างเป็นหลัก ถ้าไม่มีข้อมูลหรือไม่แน่ใจ เช่น ราคาหรือเวลาเปิด ให้บอกตามจริงและแนะนำให้สอบถามเจ้าหน้าที่ ห้ามแต่งข้อมูลขึ้นเอง
+5. เมื่อถามว่าขยะชิ้นใดทิ้งถังไหน ให้ตอบตาม "ระบบถังของสถานีนี้" เท่านั้น
+6. สอดแทรกการท่องเที่ยวอย่างรับผิดชอบเมื่อเหมาะสม เช่น ไม่ให้อาหารคนแก่สัตว์ และไม่ทิ้งพลาสติกในคอกสัตว์`;
+
+const DEFAULT_KB = `[มาลัยฟาร์ม ชะอำ (Malai Farm Cha-am)]
+- ที่ตั้ง: 233 หมู่ 2 ถนนเพชรเกษม (ทางหลวงสายเอเชีย) ต.เขาใหญ่ อ.ชะอำ จ.เพชรบุรี อยู่ฝั่งตรงข้ามซานโตรินี่ พาร์ค ชะอำ ถ้ามาจากกรุงเทพฯ จะถึงก่อน Camel Republic
+- โทรศัพท์: 099-103-1768
+- เวลาเปิด (จากรีวิวออนไลน์ ควรตรวจสอบกับเจ้าหน้าที่): จันทร์-ศุกร์ 08:00-17:00 น. เสาร์-อาทิตย์ 09:00-18:00 น.
+- ค่าเข้า: ไม่เก็บค่าเข้า แต่ขอให้ซื้อตะกร้าหรือชุดอาหารสัตว์แทน ประมาณ 100 บาท (มีแครอท ข้าวโพด ผักบุ้ง) ราคาอาจเปลี่ยนแปลง
+- สัตว์ที่พบได้ (อาจเปลี่ยนตามช่วงเวลา): แพะ แกะ อัลปากา อูฐ ม้าแคระ ควายแคระ ม้าลาย กวาง กระต่าย ห่าน นกอีมู ไก่และลูกเจี๊ยบ ปลาคาร์พ เต่า จระเข้ นกแก้ว
+- จุดเด่น: ให้อาหารและสัมผัสสัตว์ได้ใกล้ชิด เหมาะกับครอบครัวและเด็ก ถ่ายรูปสวย บางคอกมีป้ายความรู้เกี่ยวกับสัตว์ ใช้เวลาเที่ยวประมาณ 1 ชั่วโมงถึงครึ่งวัน
+- สิ่งอำนวยความสะดวก: มีที่จอดรถ มีอาหารและเครื่องดื่มจำหน่าย
+- ช่วงเวลาที่แนะนำ: ช่วงเช้าหรือเย็น กลางวันแดดแรง ควรพกหมวก ร่ม และน้ำดื่ม
+
+[ข้อปฏิบัติท่องเที่ยวเชิงนิเวศในฟาร์ม]
+- ให้อาหารสัตว์เฉพาะอาหารที่ฟาร์มจัดให้ ไม่ให้ขนม อาหารคน หรือเศษอาหาร
+- ห้ามทิ้งถุงพลาสติก หลอด หรือซองขนมในคอกสัตว์ สัตว์อาจกินเข้าไปจนเจ็บป่วย
+- ยื่นอาหารแบบแบมือ ไม่แกล้งหรือดึงขนสัตว์ ดูแลเด็กเล็กอย่างใกล้ชิด
+- ล้างมือหลังสัมผัสสัตว์และก่อนรับประทานอาหาร
+- แยกขยะลงถังให้ถูกสีที่สถานี EcoSort
+
+[แหล่งท่องเที่ยวใกล้เคียง (ระยะทางโดยประมาณจากมาลัยฟาร์ม)]
+- ซานโตรินี่ พาร์ค ชะอำ: ฝั่งตรงข้าม ประมาณ 400 เมตร สวนสนุกและจุดถ่ายรูปสไตล์กรีก
+- พรีเมียม เอาท์เล็ต ชะอำ: ประมาณ 600 เมตร แหล่งช้อปปิ้ง
+- Camel Republic: ประมาณ 1 กม. สวนสนุกและฟาร์มสัตว์
+- สวิส ชีพ ฟาร์ม: ประมาณ 2 กม. ฟาร์มแกะสไตล์ยุโรป
+- วนอุทยานเขานางพันธุรัต: ประมาณ 2 กม. ภูเขารูปร่างคล้ายนางยักษ์ตามวรรณคดี มีเส้นทางเดินศึกษาธรรมชาติที่เดินเองได้
+- พระราชนิเวศน์มฤคทายวัน: ประมาณ 20 กม. พระราชวังไม้ริมทะเลสมัยรัชกาลที่ 6
+- หาดชะอำ: ประมาณ 20 กม. ชายหาดยอดนิยม เดินเล่น ปั่นจักรยาน อาหารทะเล
+- อุทยานสิ่งแวดล้อมนานาชาติสิรินธร: ประมาณ 25 กม. แหล่งเรียนรู้ป่าชายเลนและพลังงาน มีเส้นทางศึกษาธรรมชาติและจุดดูนก
+- ในตัวเมืองเพชรบุรีมีพระนครคีรี (เขาวัง) และไกลออกไปคืออุทยานแห่งชาติแก่งกระจาน
+
+[เกี่ยวกับสถานีนี้]
+- EcoSort GuideBot เป็นผลงานนวัตกรรมของนักเรียนสาขาวิชาการท่องเที่ยว วิทยาลัยการอาชีพวังไกลกังวล ๒ (62 หมู่ 6 ต.เขาใหญ่ อ.ชะอำ จ.เพชรบุรี โทร 032-899-931)
+- กล้อง AI ประมวลผลบนเครื่องนี้เท่านั้น ไม่ส่งภาพขึ้นอินเทอร์เน็ต และไม่บันทึกภาพของนักท่องเที่ยว`;
+
+// Offline answers (used when there is no internet or no API key)
+const FAQ = [
+  { k: ['สัตว์', 'animal', 'ตัวอะไร', 'อัลปากา', 'alpaca', 'อูฐ', 'แพะ', 'แกะ', 'goat', 'sheep', 'camel'],
+    th: 'มาลัยฟาร์มมีสัตว์ให้ชมและให้อาหารหลายชนิด เช่น แพะ แกะ อัลปากา อูฐ ม้าแคระ กวาง กระต่าย ห่าน นกอีมู และปลาคาร์พ (บางชนิดอาจเปลี่ยนตามช่วงเวลา) ซื้อชุดอาหารสัตว์ของฟาร์มแล้วยื่นให้น้อง ๆ ได้เลยค่ะ',
+    en: 'Malai Farm has goats, sheep, alpacas, camels, miniature horses, deer, rabbits, geese, emus and koi, among others (the line-up can change). Buy the farm\'s feed set and you can feed them up close.' },
+  { k: ['ค่าเข้า', 'ราคา', 'กี่บาท', 'เวลาเปิด', 'เปิดกี่โมง', 'ปิดกี่โมง', 'เปิดถึง', 'price', 'ticket', 'fee', 'open', 'hour', 'close', 'เบอร์', 'โทร', 'phone', 'contact'],
+    th: 'มาลัยฟาร์มไม่เก็บค่าเข้า แต่ขอให้ซื้อชุดอาหารสัตว์แทน ประมาณ 100 บาท ส่วนเวลาเปิดตามรีวิวออนไลน์คือ จันทร์-ศุกร์ 08:00-17:00 น. และเสาร์-อาทิตย์ 09:00-18:00 น. ราคาและเวลาอาจเปลี่ยน สอบถามเจ้าหน้าที่หรือโทร 099-103-1768 ได้ค่ะ',
+    en: 'Entry is free; instead you buy an animal-feed set (about 100 baht). Online reviews list the hours as Mon-Fri 08:00-17:00 and Sat-Sun 09:00-18:00, but please check with staff or call 099-103-1768, as these can change.' },
+  { k: ['ให้อาหาร', 'feed', 'ปลอดภัย', 'safe', 'กัด', 'bite'],
+    th: 'ให้อาหารเฉพาะชุดอาหารของฟาร์ม แบมือยื่นให้ช้า ๆ ไม่ให้ขนมหรืออาหารคน ดูแลเด็กเล็กใกล้ชิด และล้างมือหลังสัมผัสสัตว์ทุกครั้งค่ะ',
+    en: 'Use only the farm\'s feed, offer it slowly on a flat palm, never give snacks or human food, keep an eye on small children, and wash your hands after touching the animals.' },
+  { k: ['เชิงนิเวศ', 'ecotour', 'eco-tour', 'green tour', 'ยั่งยืน', 'sustainable', 'รักษ์โลก'],
+    th: 'การท่องเที่ยวเชิงนิเวศคือการเที่ยวธรรมชาติอย่างรับผิดชอบ ไม่ทำลายสิ่งแวดล้อม และช่วยชุมชนท้องถิ่น ง่าย ๆ คือพกขวดน้ำส่วนตัว แยกขยะให้ถูกถัง และเคารพสัตว์กับธรรมชาติค่ะ',
+    en: 'Ecotourism means visiting natural places responsibly: do no harm, support local people and learn along the way. Easy wins are carrying a refillable bottle, sorting your waste and respecting the animals.' },
+  { k: ['ใกล้', 'แถวนี้', 'ที่เที่ยว', 'ไปต่อ', 'nearby', 'near', 'around', 'else', 'attraction'],
+    th: 'ใกล้ ๆ มีซานโตรินี่ พาร์คฝั่งตรงข้าม Camel Republic ประมาณ 1 กม. สวิส ชีพ ฟาร์ม และวนอุทยานเขานางพันธุรัตประมาณ 2 กม. ถ้าชอบธรรมชาติแนะนำอุทยานสิ่งแวดล้อมนานาชาติสิรินธรที่มีป่าชายเลนค่ะ',
+    en: 'Close by are Santorini Park (across the road), Camel Republic (about 1 km), Swiss Sheep Farm and Khao Nang Phanthurat Forest Park (about 2 km). Nature lovers will enjoy the mangrove trails at the Sirindhorn International Environmental Park.' },
+  { k: ['นางพันธุรัต', 'เขานาง', 'khao nang', 'forest park', 'เดินป่า', 'trail', 'hike'],
+    th: 'วนอุทยานเขานางพันธุรัตอยู่ห่างไปประมาณ 2 กม. ภูเขามีรูปร่างคล้ายนางยักษ์ตามวรรณคดี และมีเส้นทางเดินศึกษาธรรมชาติที่เดินเองได้ค่ะ',
+    en: 'Khao Nang Phanthurat Forest Park is about 2 km away. The mountain is said to look like a giantess from Thai literature, and it has a self-guided nature trail.' },
+  { k: ['สิรินธร', 'ป่าชายเลน', 'mangrove', 'sirindhorn', 'ดูนก', 'bird'],
+    th: 'อุทยานสิ่งแวดล้อมนานาชาติสิรินธรเป็นแหล่งเรียนรู้ป่าชายเลน พลังงาน และสิ่งแวดล้อม มีเส้นทางศึกษาธรรมชาติและจุดดูนก อยู่ห่างไปประมาณ 25 กม. ค่ะ',
+    en: 'The Sirindhorn International Environmental Park is a learning centre for mangroves, energy and the environment, with nature trails and bird-watching, about 25 km away.' },
+  { k: ['ทะเล', 'หาด', 'beach', 'sea'],
+    th: 'หาดชะอำอยู่ห่างไปประมาณ 20 กม. เดินเล่น ปั่นจักรยาน และกินอาหารทะเลได้ อย่าลืมทิ้งขยะให้ถูกถังนะคะ',
+    en: 'Cha-am Beach is about 20 km away, good for a stroll, cycling and seafood. Please put your rubbish in the right bins.' },
+  { k: ['ทำไมต้องแยก', 'ทำไม', 'why', 'ประโยชน์', 'benefit'],
+    th: 'การแยกขยะตั้งแต่ต้นทางช่วยให้ขยะรีไซเคิลได้กลับไปใช้ใหม่ เศษอาหารกลายเป็นปุ๋ย และลดขยะที่ต้องฝังกลบ ทั้งยังช่วยลดงานของเจ้าหน้าที่ฟาร์มด้วยค่ะ',
+    en: 'Sorting at the source lets recyclables be reused, turns food scraps into compost and cuts landfill. It also saves the farm staff a lot of work.' },
+  { k: ['พลาสติก', 'plastic', 'สัตว์กิน'],
+    th: 'ถุงพลาสติกและหลอดอันตรายมากสำหรับสัตว์ในฟาร์ม เพราะสัตว์อาจกินเข้าไปจนป่วย ช่วยกันทิ้งลงถังให้ถูกและอย่าทิ้งในคอกสัตว์นะคะ',
+    en: 'Plastic bags and straws are dangerous for farm animals, which may swallow them. Please keep plastic out of the pens and put it in the right bin.' },
+  { k: ['ทำงาน', 'กล้อง', 'camera', 'how does', 'ทำยังไง', 'ระบบ', 'ภาพ', 'privacy', 'ส่วนตัว', ' ai'],
+    th: 'กล้องใช้ AI ที่ประมวลผลบนเครื่องนี้เพื่อดูว่าขยะเป็นชนิดไหน แล้วพูดบอกถังที่ถูกต้อง ภาพไม่ถูกส่งขึ้นอินเทอร์เน็ตและไม่ถูกบันทึกค่ะ',
+    en: 'The camera runs AI on this device to recognise your item and tell you the right bin. Images are never uploaded or stored.' },
+  { k: ['ใครทำ', 'ผู้จัดทำ', 'who made', 'who built', 'วิทยาลัย', 'college', 'นักเรียน', 'student'],
+    th: 'สถานีนี้เป็นผลงานของนักเรียนสาขาวิชาการท่องเที่ยว วิทยาลัยการอาชีพวังไกลกังวล ๒ อ.ชะอำ จ.เพชรบุรี ค่ะ',
+    en: 'This station was built by tourism students at Wang Klai Kangwon Industrial and Community Education College 2 in Cha-am.' },
+  { k: ['ห้องน้ำ', 'toilet', 'restroom', 'ที่จอด', 'parking', 'ร้านอาหาร', 'ร้านกาแฟ', 'กินข้าว', 'eat', 'drink', 'น้ำดื่ม', 'cafe'],
+    th: 'ที่ฟาร์มมีอาหารและเครื่องดื่มจำหน่าย และมีที่จอดรถ ส่วนตำแหน่งห้องน้ำและร้านค้า สอบถามเจ้าหน้าที่ใกล้ ๆ ได้เลยค่ะ',
+    en: 'The farm sells food and drinks and has parking. For toilets and shops, please ask a nearby staff member.' },
+  { k: ['สวัสดี', 'หวัดดี', 'hello', 'hi '],
+    th: 'สวัสดีค่ะ ยินดีต้อนรับสู่มาลัยฟาร์ม ถามเรื่องสัตว์ ที่เที่ยวใกล้ ๆ หรือขยะชิ้นไหนทิ้งถังไหนก็ได้นะคะ',
+    en: 'Hello and welcome to Malai Farm! Ask me about the animals, nearby places, or which bin your rubbish goes in.' },
+  { k: ['ขอบคุณ', 'thank'],
+    th: 'ยินดีค่ะ ขอให้เที่ยวสนุก และขอบคุณที่ช่วยแยกขยะนะคะ',
+    en: 'You\'re welcome! Enjoy your visit, and thanks for sorting your waste.' }
+];
+
+const T = {
+  th: {
+    placeLine: 'สถานีแยกขยะอัจฉริยะ มาลัยฟาร์ม ชะอำ', online: 'ออนไลน์', offline: 'ออฟไลน์', aiOn: 'AI กำลังดู',
+    preparing: 'กำลังเตรียมกล้องและ AI…', hint: 'ยื่นขยะเข้ามาในกรอบ แล้วฟังว่าต้องทิ้งถังไหน',
+    botTitle: 'ถาม GuideBot', botSub: 'ไกด์ช่วยตอบเรื่องเที่ยวมาลัยฟาร์มและการแยกขยะ', botSubOff: 'ตอนนี้ออฟไลน์ ตอบจากคลังคำถามที่เตรียมไว้',
+    rate: 'ให้คะแนนระบบ', askPh: 'พิมพ์คำถาม เช่น ที่นี่มีสัตว์อะไรบ้าง', where: 'ทิ้งลง<b>{bin}</b> {type}',
+    greet: 'สวัสดีค่ะ ยินดีต้อนรับสู่มาลัยฟาร์ม ถามเรื่องสัตว์ ที่เที่ยวใกล้ ๆ หรือขยะชิ้นไหนทิ้งถังไหนก็ได้นะคะ',
+    chips: ['ที่นี่มีสัตว์อะไรบ้าง', 'ให้อาหารสัตว์อย่างไรให้ปลอดภัย', 'แก้วกาแฟพลาสติกทิ้งถังไหน', 'ที่เที่ยวใกล้ ๆ แถวนี้', 'ท่องเที่ยวเชิงนิเวศคืออะไร', 'ค่าเข้าและเวลาเปิด'],
+    offlineTag: 'คำตอบจากคลังข้อมูลในเครื่อง',
+    offlineDefault: 'ขออภัยค่ะ ตอนนี้ตอบได้เฉพาะเรื่องมาลัยฟาร์ม ที่เที่ยวใกล้เคียง และการแยกขยะ ลองถามใหม่ หรือสอบถามเจ้าหน้าที่ได้เลยค่ะ',
+    binsIntro: 'สถานีนี้มีถัง {n} ใบค่ะ',
+    itemAns: '{item} ทิ้งลง{bin} ({type}) ค่ะ',
+    basicMode: 'โหมดพื้นฐาน ยังไม่ได้สอน AI ประจำสถานี',
+    dataMismatch: 'ข้อมูลที่สอนไว้ไม่ตรงกับโมเดล ผู้ดูแลกรุณาตรวจสอบ',
+    notReady: 'กล้องยังไม่พร้อมแยกขยะ', notReadySub: 'ดูป้ายบนถัง หรือถาม GuideBot ได้เลย',
+    camErr: 'เปิดกล้องไม่ได้', aiErr: 'โหลด AI ไม่สำเร็จ',
+    svTitle: 'ช่วยให้คะแนนสถานีนี้หน่อย', svLead: 'ใช้เวลาไม่ถึง 30 วินาที ข้อมูลนี้ใช้ปรับปรุงโครงงานของนักเรียน',
+    svWho: 'ฉันคือ', svTourist: 'นักท่องเที่ยว', svStaff: 'เจ้าหน้าที่/ผู้ดูแล', svQ1: 'ใช้งานง่าย', svQ2: 'ช่วยให้แยกขยะได้ถูกต้องและได้ความรู้',
+    svQ3: 'อยากให้มีสถานีแบบนี้ในที่เที่ยวอื่น ๆ', svSend: 'ส่งคะแนน', cancel: 'ยกเลิก', thanks: 'ขอบคุณสำหรับคะแนนค่ะ',
+    faces: ['น้อยที่สุด', 'น้อย', 'ปานกลาง', 'มาก', 'มากที่สุด'], micErr: 'ฟังเสียงไม่ได้ ลองพิมพ์คำถามแทนนะคะ'
+  },
+  en: {
+    placeLine: 'Smart waste station, Malai Farm, Cha-am', online: 'Online', offline: 'Offline', aiOn: 'AI watching',
+    preparing: 'Starting camera and AI…', hint: 'Hold your item inside the frame and listen for the right bin',
+    botTitle: 'Ask GuideBot', botSub: 'Your guide to Malai Farm and waste sorting', botSubOff: 'Offline now, answering from saved questions',
+    rate: 'Rate this station', askPh: 'Ask something, e.g. What animals are here?', where: 'Use the <b>{bin}</b>: {type}',
+    greet: 'Hello and welcome to Malai Farm! Ask me about the animals, nearby places, or which bin your rubbish goes in.',
+    chips: ['What animals are here?', 'How do I feed the animals safely?', 'Which bin for a plastic coffee cup?', 'What else is nearby?', 'What is ecotourism?', 'Entry fee and opening hours'],
+    offlineTag: 'Answer from on-device notes',
+    offlineDefault: 'Sorry, right now I can only help with Malai Farm, nearby places and waste sorting. Try asking again, or ask a staff member.',
+    binsIntro: 'This station has {n} bins.',
+    itemAns: '{item} goes in the {bin} ({type}).',
+    basicMode: 'Basic mode: station AI not trained yet',
+    dataMismatch: 'Training data does not match the model. Staff, please check.',
+    notReady: 'The camera is not ready to sort yet', notReadySub: 'Check the bin labels or ask GuideBot',
+    camErr: 'Camera unavailable', aiErr: 'AI failed to load',
+    svTitle: 'Please rate this station', svLead: 'It takes under 30 seconds and helps the student project.',
+    svWho: 'I am a', svTourist: 'Visitor', svStaff: 'Staff member', svQ1: 'Easy to use', svQ2: 'Helped me sort correctly and learn something',
+    svQ3: 'I would like stations like this at other places', svSend: 'Send rating', cancel: 'Cancel', thanks: 'Thank you for rating!',
+    faces: ['Not at all', 'A little', 'Somewhat', 'Very', 'Extremely'], micErr: 'Could not hear you. Please type instead.'
+  }
+};
+
+/* ---------------- utilities ---------------- */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = (s, v) => String(s).replace(/\{(\w+)\}/g, (_, k) => v[k] ?? '');
+const clone = o => JSON.parse(JSON.stringify(o));
+const now = () => performance.now();
+const L = () => S.lang === 'en' ? 'en' : 'th';
+const t = k => (T[L()][k] ?? T.th[k] ?? k);
+const isThai = s => /[฀-๿]/.test(s);
+const pct = x => Math.round(x * 100) + '%';
+function debounce(fn, ms) { let h; return (...a) => { clearTimeout(h); h = setTimeout(() => fn(...a), ms); }; }
+function toast(msg, ms = 2600) { const el = $('#toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('show'), ms); }
+function lum(hex) { const c = hex.replace('#', ''); const v = [0, 2, 4].map(i => parseInt(c.substr(i, 2), 16) / 255).map(x => x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4)); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; }
+function inkOn(hex) { try { const l = lum(hex); return (1.05 / (l + 0.05)) >= ((l + 0.05) / 0.06) ? '#FFFFFF' : '#1B1A0E'; } catch { return '#fff'; } }
+function download(name, text, type = 'application/json') { const b = new Blob([text], { type }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+function csv(rows) { return '﻿' + rows.map(r => r.map(v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(',')).join('\n'); }
+function dstr(ts) { const d = new Date(ts); const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
+function f32ToB64(f) { const u = new Uint8Array(f.buffer, f.byteOffset, f.byteLength); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
+function b64ToF32(b) { const s = atob(b); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return new Float32Array(u.buffer); }
+
+/* ---------------- settings ---------------- */
+const DEFAULTS = {
+  lang: 'th', muted: false, pin: '1234',
+  threshold: 75, stableFrames: 3, cooldown: 6, k: 7, minSim: 0, interval: 120,
+  zeroShot: true, zsThreshold: 40,
+  speakTips: true, voiceRate: 1.0, voiceTh: '', voiceEn: '',
+  tplTh: '{item} ทิ้งลง{bin} {type}ค่ะ', tplEn: '{item}: please use the {bin} for {type}.',
+  cameraId: '', facing: 'user', mirror: true, modelSize: 'standard',
+  readAnswers: true, showSurvey: true, idleReset: 90, autoFullscreen: true,
+  apiKey: '', model: 'gemini-flash-latest', systemPrompt: DEFAULT_PROMPT, kb: DEFAULT_KB,
+  bins: DEFAULT_BINS, items: DEFAULT_ITEMS, exported: false
+};
+const SKEY = 'ecosort.settings.v1';
+let S = loadSettings();
+function loadSettings() {
+  let s = {};
+  try { s = JSON.parse(localStorage.getItem(SKEY) || '{}') || {}; } catch { s = {}; }
+  const out = Object.assign(clone(DEFAULTS), s);
+  if (!Array.isArray(out.bins) || !out.bins.length) out.bins = clone(DEFAULT_BINS);
+  if (!Array.isArray(out.items) || !out.items.length) out.items = clone(DEFAULT_ITEMS);
+  if (!out.items.find(i => i.id === BG)) out.items.unshift(clone(DEFAULT_ITEMS[0]));
+  return out;
+}
+const saveSettings = debounce(() => { try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) { console.warn(e); } }, 250);
+const itemById = id => S.items.find(i => i.id === id);
+const binById = id => S.bins.find(b => b.id === id);
+
+/* ---------------- IndexedDB ---------------- */
+const DB = {
+  _p: null,
+  open() {
+    if (!this._p) this._p = new Promise((res, rej) => {
+      if (!('indexedDB' in window)) return rej(new Error('no indexedDB'));
+      const r = indexedDB.open('ecosort', 1);
+      r.onupgradeneeded = () => { const d = r.result; d.createObjectStore('kv'); d.createObjectStore('events', { autoIncrement: true }); d.createObjectStore('survey', { autoIncrement: true }); };
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+    return this._p;
+  },
+  async run(store, mode, fn) {
+    const d = await this.open();
+    return new Promise((res, rej) => { const tx = d.transaction(store, mode); const req = fn(tx.objectStore(store)); tx.oncomplete = () => res(req ? req.result : undefined); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error); });
+  },
+  get(k) { return this.run('kv', 'readonly', s => s.get(k)); },
+  set(k, v) { return this.run('kv', 'readwrite', s => s.put(v, k)); },
+  del(k) { return this.run('kv', 'readwrite', s => s.delete(k)); },
+  add(st, v) { return this.run(st, 'readwrite', s => s.add(v)); },
+  all(st) { return this.run(st, 'readonly', s => s.getAll()); },
+  clear(st) { return this.run(st, 'readwrite', s => s.clear()); }
+};
+function logEvent(e) { DB.add('events', Object.assign({ t: Date.now() }, e)).catch(() => {}); }
+
+/* ---------------- state ---------------- */
+const state = {
+  started: false, view: 'kiosk', stream: null, loopOn: false, wl: null, sw: null,
+  lastChat: 0, busy: false, chat: [], thumbs: {}, evalRecs: [], evalTrue: null, testing: false,
+  lastPred: null, inferMs: [], adminTab: 'train'
+};
+const AI = { ready: false, id: null, src: null, fx: null, dim: 0, head: false, knn: null, dataOk: true, err: null, backend: '' };
+
+/* ---------------- i18n & static UI ---------------- */
+function applyI18n() {
+  document.documentElement.lang = L();
+  $$('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  $$('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+  $('#langBtn').textContent = L() === 'th' ? 'EN' : 'ไทย';
+  updateNet();
+  $$('.faces').forEach(f => {
+    f.innerHTML = ['😞', '🙁', '😐', '🙂', '😄'].map((e, i) => `<button type="button" data-v="${i + 1}" aria-pressed="false">${e}<small>${esc(T[L()].faces[i])}</small></button>`).join('');
+  });
+  $('#rateBtn').hidden = !S.showSurvey;
+}
+function renderBins() {
+  $('#bins').innerHTML = S.bins.filter(b => b.on).map(b =>
+    `<div class="bin" data-bin="${esc(b.id)}" style="--c:${esc(b.color)};--ink-on:${inkOn(b.color)}"><svg class="i"><use href="#i-${esc(b.icon)}"/></svg><div class="type">${esc(b.type[L()])}</div><div class="name">${esc(b.name[L()])}</div><span class="arrow"></span></div>`).join('');
+}
+function renderChips() {
+  $('#chips').innerHTML = T[L()].chips.map(c => `<button type="button" class="chip">${esc(c)}</button>`).join('');
+}
+function updateNet() {
+  const on = navigator.onLine;
+  const el = $('#net'); el.classList.toggle('off', !on); el.textContent = on ? t('online') : t('offline');
+  $('#botSub').textContent = on ? t('botSub') : t('botSubOff');
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  $('#micBtn').hidden = !(SR && on);
+}
+function setMuteIcon() { $('#muteBtn').innerHTML = `<svg class="i"><use href="#i-${S.muted ? 'volx' : 'vol'}"/></svg>`; $('#muteBtn').classList.toggle('on', S.muted); }
+
+/* ---------------- speech ---------------- */
+let VOICES = [];
+function loadVoices() { try { VOICES = speechSynthesis.getVoices() || []; } catch { VOICES = []; } }
+if ('speechSynthesis' in window) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
+function pickVoice(lang) {
+  const pref = lang === 'th' ? S.voiceTh : S.voiceEn;
+  let v = VOICES.find(x => x.voiceURI === pref);
+  if (!v) v = VOICES.find(x => x.lang && x.lang.toLowerCase().replace('_', '-').startsWith(lang));
+  return v || null;
+}
+const speech = { busyUntil: 0 };
+function isSpeaking() { try { return speechSynthesis.speaking || speechSynthesis.pending || now() < speech.busyUntil; } catch { return false; } }
+function speak(text, { lang = L(), force = false, onstart } = {}) {
+  if (S.muted || !('speechSynthesis' in window) || !text) { onstart && onstart(); return false; }
+  if (!force && isSpeaking()) return false;
+  try {
+    if (force) speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = lang === 'th' ? 'th-TH' : 'en-US';
+    const v = pickVoice(lang); if (v) u.voice = v;
+    u.rate = S.voiceRate; u.pitch = 1;
+    u.onstart = () => onstart && onstart();
+    u.onend = u.onerror = () => { speech.busyUntil = 0; };
+    speech.busyUntil = now() + Math.min(15000, 900 + text.length * 85);
+    speechSynthesis.speak(u);
+    try { speechSynthesis.resume(); } catch {}
+    return true;
+  } catch (e) { console.warn(e); return false; }
+}
+let AC = null;
+function unlockAudio() {
+  try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); AC.resume(); } catch {}
+  try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch {}
+}
+function chime() {
+  if (S.muted || !AC) return;
+  try {
+    const t0 = AC.currentTime;
+    [[784, 0], [1175, 0.11]].forEach(([f, d]) => {
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0 + d); g.gain.exponentialRampToValueAtTime(0.22, t0 + d + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 0.32);
+      o.connect(g).connect(AC.destination); o.start(t0 + d); o.stop(t0 + d + 0.36);
+    });
+  } catch {}
+}
+
+/* ---------------- AI: libraries, model, inference ---------------- */
+async function loadScript(urls) {
+  for (const u of urls) {
+    try {
+      await new Promise((ok, fail) => { const s = document.createElement('script'); s.src = u; s.async = true; s.crossOrigin = 'anonymous'; s.onload = ok; s.onerror = () => { s.remove(); fail(new Error(u)); }; document.head.append(s); });
+      return u;
+    } catch (e) { console.warn('script failed', u); }
+  }
+  throw new Error('โหลดไลบรารีไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต');
+}
+function setLoad(key, label, status, cls = '') {
+  const ul = $('#loadList'); let li = ul.querySelector(`[data-k="${key}"]`);
+  if (!li) { li = document.createElement('li'); li.dataset.k = key; li.innerHTML = '<b></b><span></span>'; ul.append(li); }
+  li.querySelector('b').textContent = label; const sp = li.querySelector('span'); sp.textContent = status; sp.className = cls;
+}
+async function loadBaseModel(order) {
+  let lastErr;
+  for (const id of order) {
+    const src = MODEL_SOURCES[id]; if (!src) continue;
+    try {
+      let base = null, cached = false;
+      try { base = await tf.loadLayersModel('indexeddb://ecosort-' + id); cached = true; } catch {}
+      if (!base) {
+        setLoad('model', 'โมเดล ' + src.label, 'กำลังดาวน์โหลด 0%');
+        base = await tf.loadLayersModel(src.url, { onProgress: p => setLoad('model', 'โมเดล ' + src.label, 'กำลังดาวน์โหลด ' + Math.round(p * 100) + '%') });
+      }
+      const layer = base.getLayer(src.layer);
+      const pooled = tf.layers.globalAveragePooling2d({ name: 'ecosort_gap_' + Math.random().toString(36).slice(2, 8) }).apply(layer.output);
+      const outs = src.head ? [pooled, base.outputs[0]] : [pooled];
+      const fx = tf.model({ inputs: base.inputs, outputs: outs });
+      tf.tidy(() => { fx.predict(tf.zeros([1, 224, 224, 3])); });
+      if (!cached) base.save('indexeddb://ecosort-' + id).catch(e => console.warn('cache model', e));
+      return { id, src, fx, dim: pooled.shape[pooled.shape.length - 1], head: !!src.head, cached };
+    } catch (e) { lastErr = e; console.warn('model source failed', id, e); }
+  }
+  throw lastErr || new Error('no model');
+}
+async function initAI() {
+  try {
+    setLoad('lib', 'ไลบรารี TensorFlow.js', 'กำลังโหลด…');
+    await loadScript(LIBS.tf);
+    await loadScript(LIBS.knn);
+    await tf.ready();
+    AI.backend = tf.getBackend();
+    setLoad('lib', 'ไลบรารี TensorFlow.js', 'พร้อม (' + AI.backend + ')', 'ok');
+    AI.knn = knnClassifier.create();
+    const saved = await DB.get('dataset').catch(() => null);
+    let order = MODEL_ORDER[S.modelSize] || MODEL_ORDER.standard;
+    if (saved && saved.modelId) order = [saved.modelId, ...order.filter(x => x !== saved.modelId)];
+    const m = await loadBaseModel(order);
+    Object.assign(AI, { id: m.id, src: m.src, fx: m.fx, dim: m.dim, head: m.head });
+    setLoad('model', 'โมเดล ' + m.src.label, m.cached ? 'พร้อม (จากเครื่อง)' : 'พร้อม', 'ok');
+    if (saved && saved.data) {
+      if (saved.modelId === AI.id) { await restoreDataset(saved); setLoad('data', 'ข้อมูลที่สอนไว้', totalSamples() + ' ภาพ', 'ok'); }
+      else { AI.dataOk = false; setLoad('data', 'ข้อมูลที่สอนไว้', 'ไม่ตรงกับโมเดล', 'err'); }
+    } else {
+      const ok = await tryDefaultModelFile();
+      setLoad('data', 'ข้อมูลที่สอนไว้', ok ? 'โหลดจากไฟล์ ecosort-model.json' : 'ยังไม่ได้สอน', ok ? 'ok' : '');
+    }
+    AI.ready = true;
+  } catch (e) {
+    AI.err = e; console.error(e);
+    setLoad('model', 'AI', 'ไม่สำเร็จ: ' + (e.message || e), 'err');
+  }
+  updateModeBadge();
+}
+function srcVideo() {
+  const pv = state.view === 'admin' ? $('#pvVideo') : null;
+  return (pv && pv.videoWidth) ? pv : $('#video');
+}
+function frameTensor(video) {
+  return tf.tidy(() => {
+    const img = tf.browser.fromPixels(video);
+    const [h, w] = img.shape; const s = Math.min(h, w);
+    const crop = img.slice([(h - s) >> 1, (w - s) >> 1, 0], [s, s, 3]);
+    return tf.image.resizeBilinear(crop, [224, 224]).toFloat().div(127.5).sub(1).expandDims(0);
+  });
+}
+function infer(video) {
+  return tf.tidy(() => { let out = AI.fx.predict(frameTensor(video)); if (!Array.isArray(out)) out = [out]; return out; });
+}
+function knnUsable() {
+  if (!AI.ready || !AI.dataOk || !AI.knn) return false;
+  const c = AI.knn.getClassExampleCount();
+  const items = Object.keys(c).filter(k => k !== BG && c[k] > 0 && itemById(k));
+  return items.length >= 1 && (c[BG] || 0) > 0;
+}
+function topK(arr, k) { const idx = Array.from(arr.keys()); idx.sort((a, b) => arr[b] - arr[a]); return idx.slice(0, k); }
+async function knnPredict(emb) {
+  const simT = tf.tidy(() => tf.cast(AI.knn.similarities(emb), 'float32'));
+  const sims = await simT.data(); simT.dispose();
+  const counts = Object.values(AI.knn.getClassExampleCount()).filter(n => n > 0);
+  const kVal = Math.max(1, Math.min(S.k, sims.length, ...counts));   // K larger than a class's sample count would cap its confidence
+  const idx = topK(sims, kVal);
+  const r = AI.knn.calculateTopClass(idx, kVal);
+  return { label: r.label, conf: r.confidences[r.label] || 0, sim: sims[idx[0]], mode: 'knn' };
+}
+async function zsPredict(probsT) {
+  const p = await probsT.data();
+  let best = null, bp = 0;
+  for (const [id, idxs] of Object.entries(ZS_MAP)) {
+    const it = itemById(id); if (!it || !binById(it.bin)?.on) continue;
+    let s = 0; for (const i of idxs) s += p[i] || 0;
+    if (s > bp) { bp = s; best = id; }
+  }
+  return { label: best, conf: bp, sim: 1, mode: 'zs' };
+}
+async function predictFrame() {
+  const video = srcVideo();
+  if (!AI.ready || !video.videoWidth) return null;
+  const tCap = now();
+  const out = infer(video);
+  let pred = null;
+  try {
+    if (knnUsable()) pred = await knnPredict(out[0]);
+    else if (AI.head && S.zeroShot && out[1] && AI.dataOk) pred = await zsPredict(out[1]);
+  } finally { out.forEach(x => x.dispose()); }
+  const ms = now() - tCap;
+  state.inferMs.push(ms); if (state.inferMs.length > 60) state.inferMs.shift();
+  if (pred) { pred.tCap = tCap; pred.ms = ms; }
+  return pred;
+}
+function totalSamples() { if (!AI.knn) return 0; return Object.values(AI.knn.getClassExampleCount()).reduce((a, b) => a + b, 0); }
+function classCount(id) { return AI.knn ? (AI.knn.getClassExampleCount()[id] || 0) : 0; }
+
+/* dataset persistence */
+async function datasetObject() {
+  const ds = AI.knn.getClassifierDataset(); const data = {};
+  for (const [label, ten] of Object.entries(ds)) data[label] = { shape: ten.shape.slice(), v: await ten.data() };
+  return { modelId: AI.id, dim: AI.dim, savedAt: Date.now(), data, thumbs: state.thumbs };
+}
+async function restoreDataset(obj) {
+  const ds = {};
+  for (const [label, d] of Object.entries(obj.data || {})) {
+    const v = d.v instanceof Float32Array ? d.v : (d.b64 ? b64ToF32(d.b64) : new Float32Array(d.v));
+    const rows = d.shape ? d.shape[0] : d.rows; const dim = d.shape ? d.shape[1] : obj.dim;
+    if (rows > 0) ds[label] = tf.tensor2d(v, [rows, dim]);
+  }
+  AI.knn.clearAllClasses();
+  AI.knn.setClassifierDataset(ds);
+  state.thumbs = obj.thumbs || {};
+  AI.dataOk = true;
+}
+let saveTimer = null;
+function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveDatasetNow, 1500); }
+async function saveDatasetNow() {
+  clearTimeout(saveTimer);
+  if (!AI.knn || !AI.dataOk) return;
+  try { await DB.set('dataset', await datasetObject()); state.savedAt = Date.now(); if (state.view === 'admin') refreshSaveLabel(); }
+  catch (e) { console.warn(e); toast('บันทึกข้อมูลไม่สำเร็จ: ' + e.message); }
+}
+async function exportModelFile() {
+  const o = await datasetObject();
+  const data = {};
+  for (const [k, d] of Object.entries(o.data)) data[k] = { rows: d.shape[0], b64: f32ToB64(d.v) };
+  const out = { format: 'ecosort-model', version: 1, app: APP_VERSION, modelId: AI.id, modelLabel: AI.src.label, dim: AI.dim, exportedAt: new Date().toISOString(), items: S.items, bins: S.bins, thumbs: o.thumbs, data };
+  download('ecosort-model.json', JSON.stringify(out));
+  S.exported = true; saveSettings();
+}
+async function importModelObj(obj, { silent = false, applyConfig = true } = {}) {
+  if (!obj || obj.format !== 'ecosort-model' || !obj.data) throw new Error('ไม่ใช่ไฟล์โมเดล EcoSort');
+  if (obj.modelId !== AI.id) {
+    if (!MODEL_SOURCES[obj.modelId]) throw new Error('ไม่รู้จักโมเดล ' + obj.modelId);
+    if (!silent) toast('กำลังเปลี่ยนเป็น ' + MODEL_SOURCES[obj.modelId].label + ' ให้ตรงกับไฟล์…', 4000);
+    const m = await loadBaseModel([obj.modelId]);
+    if (AI.fx) AI.fx.dispose();
+    Object.assign(AI, { id: m.id, src: m.src, fx: m.fx, dim: m.dim, head: m.head });
+  }
+  if (applyConfig) {
+    if (Array.isArray(obj.items) && obj.items.length) { S.items = obj.items; if (!itemById(BG)) S.items.unshift(clone(DEFAULT_ITEMS[0])); }
+    if (Array.isArray(obj.bins) && obj.bins.length) S.bins = obj.bins;
+    saveSettings(); renderBins();
+  }
+  const data = {};
+  for (const [k, d] of Object.entries(obj.data)) data[k] = { shape: [d.rows, obj.dim], v: b64ToF32(d.b64) };
+  await restoreDataset({ data, dim: obj.dim, thumbs: obj.thumbs });
+  await saveDatasetNow();
+  updateModeBadge();
+}
+async function tryDefaultModelFile() {
+  if (!/^https?:$/.test(location.protocol)) return false;
+  try {
+    const r = await fetch('ecosort-model.json', { cache: 'no-cache' });
+    if (!r.ok) return false;
+    await importModelObj(await r.json(), { silent: true });
+    return true;
+  } catch { return false; }
+}
+
+/* ---------------- camera ---------------- */
+async function startCamera() {
+  const video = $('#video');
+  if (state.stream) state.stream.getTracks().forEach(tr => tr.stop());
+  if (!window.isSecureContext) throw new Error('ต้องเปิดผ่าน https:// (เช่น GitHub Pages) จึงจะใช้กล้องได้');
+  if (!navigator.mediaDevices?.getUserMedia) throw new Error('เบราว์เซอร์นี้ไม่รองรับกล้อง');
+  const base = { width: { ideal: 640 }, height: { ideal: 480 } };
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: S.cameraId ? { ...base, deviceId: { exact: S.cameraId } } : { ...base, facingMode: S.facing } });
+  } catch (e) {
+    if (S.cameraId) stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { ...base, facingMode: S.facing } });
+    else throw e;
+  }
+  state.stream = stream;
+  video.srcObject = stream; await video.play().catch(() => {});
+  applyMirror(); layoutScanbox();
+  const pv = $('#pvVideo'); if (pv) { pv.srcObject = stream; pv.play().catch(() => {}); }
+}
+function layoutScanbox() {
+  const v = $('#video'), cam = $('#cam'), box = $('.scanbox'); if (!box || !cam) return;
+  const W = cam.clientWidth, H = cam.clientHeight; if (!W || !H) return;
+  const vw = v.videoWidth || 4, vh = v.videoHeight || 3;
+  const scale = Math.max(W / vw, H / vh);
+  const side = Math.min(Math.min(vw, vh) * scale, W - 28, H - 28);
+  Object.assign(box.style, { width: side + 'px', height: side + 'px', left: (W - side) / 2 + 'px', top: (H - side) / 2 + 'px', transform: 'none' });
+}
+function applyMirror() { $$('#video, #pvVideo').forEach(v => v.classList.toggle('mirror', !!S.mirror)); }
+function camErrorText(e) {
+  const n = e && e.name;
+  if (n === 'NotAllowedError' || n === 'SecurityError') return 'ไม่ได้รับอนุญาตให้ใช้กล้อง แตะไอคอนกุญแจข้างแถบที่อยู่เว็บแล้วอนุญาตกล้อง';
+  if (n === 'NotFoundError' || n === 'OverconstrainedError') return 'ไม่พบกล้องบนอุปกรณ์นี้';
+  if (n === 'NotReadableError') return 'กล้องถูกใช้งานโดยแอปอื่นอยู่';
+  return e && e.message ? e.message : String(e);
+}
+
+/* ---------------- kiosk detection ---------------- */
+const det = { label: null, count: 0, t0: 0, lastLabel: null, lastAt: 0, offSince: 0, shownAt: 0, showing: null };
+async function loop() {
+  if (!state.loopOn) return;
+  const t0 = now();
+  try {
+    const idleAdmin = state.view === 'admin' && !['train', 'eval'].includes(state.adminTab);
+    if (!document.hidden && AI.ready && state.stream && !idleAdmin) {
+      if (state.testing) await evalTick();
+      else {
+        const p = await predictFrame();
+        state.lastPred = p;
+        if (state.view === 'kiosk') onPrediction(p); else adminLive(p);
+      }
+    }
+  } catch (e) { console.warn('loop', e); }
+  setTimeout(loop, Math.max(20, S.interval - (now() - t0)));
+}
+function predOk(p) {
+  if (!p || !p.label || p.label === BG) return false;
+  const it = itemById(p.label); if (!it || !binById(it.bin)?.on) return false;
+  const thr = (p.mode === 'zs' ? S.zsThreshold : S.threshold) / 100;
+  if (p.conf < thr) return false;
+  if (p.mode === 'knn' && S.minSim > 0 && p.sim < S.minSim / 100) return false;
+  return true;
+}
+function onPrediction(p) {
+  const tnow = now();
+  if (!predOk(p)) {
+    det.label = null; det.count = 0;
+    if (!det.offSince) det.offSince = tnow;
+    if (tnow - det.offSince > 1200) det.lastLabel = null;      // next person may show the same item again
+    if (det.showing && tnow - det.shownAt > 3500) hideResult();
+    return;
+  }
+  det.offSince = 0;
+  if (p.label === det.label) det.count++; else { det.label = p.label; det.count = 1; det.t0 = p.tCap; }
+  if (det.count < S.stableFrames) return;
+  const item = itemById(p.label), bin = binById(item.bin);
+  const fresh = det.lastLabel !== p.label || (tnow - det.lastAt > S.cooldown * 1000);
+  if (det.showing !== p.label || fresh) showResult(item, bin);
+  det.shownAt = tnow;
+  if (!fresh || isSpeaking()) return;
+  det.lastLabel = p.label; det.lastAt = tnow;
+  const t0 = det.t0, conf = p.conf, mode = p.mode;
+  let logged = false;
+  const log = () => { if (logged) return; logged = true; logEvent({ type: 'sort', item: item.id, bin: bin.id, conf: +conf.toFixed(3), ms: Math.round(now() - t0), mode }); };
+  chime();
+  const said = speak(nudgeText(item, bin), { onstart: log });
+  if (!said) log();
+  setTimeout(log, 4000);
+}
+function nudgeText(item, bin, lang = L()) {
+  const tpl = lang === 'en' ? S.tplEn : S.tplTh;
+  let s = fmt(tpl, { item: item[lang] || item.th, bin: bin.name[lang], type: bin.type[lang] });
+  if (S.speakTips && item.tip && item.tip[lang]) s += ' ' + item.tip[lang];
+  return s;
+}
+function showResult(item, bin) {
+  det.showing = item.id;
+  const lg = L();
+  $('#rItem').textContent = item[lg] || item.th;
+  $('#rWhere').innerHTML = fmt(t('where'), { bin: esc(bin.name[lg]), type: esc(bin.type[lg]) });
+  $('#rTip').textContent = (item.tip && item.tip[lg]) || '';
+  const sw = $('#rSwatch'); sw.innerHTML = `<svg class="i"><use href="#i-${esc(bin.icon)}"/></svg>`;
+  const cam = $('#cam'), res = $('#result');
+  [cam, res].forEach(el => { el.style.setProperty('--hit', bin.color); el.style.setProperty('--hit-ink', inkOn(bin.color)); });
+  cam.classList.add('hit'); res.classList.add('show');
+  $('#bins').classList.add('focus');
+  $$('#bins .bin').forEach(b => b.classList.toggle('hit', b.dataset.bin === bin.id));
+}
+function hideResult() {
+  det.showing = null;
+  $('#result').classList.remove('show'); $('#cam').classList.remove('hit');
+  $('#bins').classList.remove('focus'); $$('#bins .bin').forEach(b => b.classList.remove('hit'));
+}
+function updateModeBadge() {
+  const badge = $('#modeBadge'), msg = $('#camMsg');
+  if (!state.started) return;
+  if (!state.stream) return;
+  if (AI.err || !AI.ready) {
+    if (AI.err) { msg.hidden = false; msg.innerHTML = `<div>${esc(t('aiErr'))}<small>${esc(t('notReadySub'))}</small></div>`; }
+    badge.hidden = true; $('#liveDot').hidden = true; return;
+  }
+  msg.hidden = true; $('#liveDot').hidden = false;
+  if (!AI.dataOk) { badge.hidden = false; badge.textContent = t('dataMismatch'); }
+  else if (knnUsable()) badge.hidden = true;
+  else if (AI.head && S.zeroShot) { badge.hidden = false; badge.textContent = t('basicMode'); }
+  else { badge.hidden = true; msg.hidden = false; msg.innerHTML = `<div>${esc(t('notReady'))}<small>${esc(t('notReadySub'))}</small></div>`; $('#liveDot').hidden = true; }
+}
+
+/* ---------------- GuideBot chat ---------------- */
+function binsPromptText() {
+  return S.bins.filter(b => b.on).map(b => `- ${b.name.th} (${b.name.en}) = ${b.type.th} / ${b.type.en}: ${b.ex.th}`).join('\n');
+}
+function itemsPromptText() {
+  return S.items.filter(i => i.id !== BG && binById(i.bin)?.on).map(i => `- ${i.th} (${i.en}) -> ${binById(i.bin).name.th}${i.tip?.th ? ' | ' + i.tip.th : ''}`).join('\n');
+}
+function systemText() {
+  return `${S.systemPrompt}\n\n[ระบบถังของสถานีนี้]\n${binsPromptText()}\n\n[ตัวอย่างขยะและถังที่ถูกต้อง]\n${itemsPromptText()}\n\n[ข้อมูลสถานที่]\n${S.kb}\n\nภาษาที่หน้าจอเลือกอยู่: ${L() === 'th' ? 'ไทย' : 'English'}`;
+}
+function cleanText(s) {
+  return String(s).replace(/\*\*|__|`/g, '').replace(/^#+\s*/gm, '').replace(/^\s*[*-]\s+/gm, '• ').replace(/\*/g, '').trim();
+}
+async function askGemini(history) {
+  const key = (S.apiKey || '').trim(); if (!key) throw new Error('ยังไม่ได้ใส่ API Key');
+  const contents = history.slice(-10).map(m => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.text }] }));
+  while (contents.length && contents[0].role !== 'user') contents.shift();
+  const body = { systemInstruction: { parts: [{ text: systemText() }] }, contents, generationConfig: { temperature: 0.5, maxOutputTokens: 1024 } };
+  const models = [String(S.model || '').replace(/^models\//, '').trim(), ...GEMINI_FALLBACKS].filter((m, i, a) => m && a.indexOf(m) === i);
+  let lastErr = null;
+  for (const m of models) {
+    const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 20000);
+    try {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(body), signal: ctrl.signal });
+      clearTimeout(to);
+      const j = await r.json().catch(() => ({}));
+      if (r.status === 404 || (r.status === 400 && /not found|not supported/i.test(j.error?.message || ''))) { lastErr = new Error(`ไม่พบโมเดล ${m}`); continue; }
+      if (!r.ok) throw new Error(j.error?.message || ('HTTP ' + r.status));
+      const parts = j.candidates?.[0]?.content?.parts || [];
+      const text = parts.filter(p => !p.thought && p.text).map(p => p.text).join('').trim();
+      if (!text) throw new Error('ไม่ได้รับคำตอบ' + (j.promptFeedback?.blockReason ? ' (' + j.promptFeedback.blockReason + ')' : ''));
+      state.activeModel = m;
+      return { text: cleanText(text), model: m };
+    } catch (e) {
+      clearTimeout(to); lastErr = e.name === 'AbortError' ? new Error('หมดเวลารอคำตอบ') : e;
+      break;
+    }
+  }
+  throw lastErr || new Error('เรียก Gemini ไม่สำเร็จ');
+}
+function itemAnswer(it) {
+  const lg = L(), bin = binById(it.bin);
+  let s = fmt(t('itemAns'), { item: it[lg] || it.th, bin: bin.name[lg], type: bin.type[lg] });
+  if (it.tip && it.tip[lg]) s += ' ' + it.tip[lg];
+  return s;
+}
+function binsSummary() {
+  const lg = L(); const bins = S.bins.filter(b => b.on);
+  return fmt(t('binsIntro'), { n: bins.length }) + '\n' + bins.map(b => `• ${b.name[lg]}: ${b.type[lg]} (${b.ex[lg]})`).join('\n');
+}
+function offlineAnswer(q) {
+  const s = ' ' + q.toLowerCase() + ' ';
+  const lg = isThai(q) ? 'th' : (L() === 'en' ? 'en' : 'th');
+  let best = null, bs = 0;
+  for (const it of S.items) {
+    if (it.id === BG || !binById(it.bin)?.on) continue;
+    for (const k of [it.th, it.en, ...(it.kw || [])]) { const kk = String(k || '').toLowerCase(); if (kk.length > 1 && s.includes(kk) && kk.length > bs) { best = it; bs = kk.length; } }
+  }
+  const asksBin = /ทิ้ง|ถัง|แยก|bin|throw|dispose|recycl|put/.test(s);
+  let fb = null, fs = 0;
+  for (const f of FAQ) { let sc = 0; for (const k of f.k) if (s.includes(k.toLowerCase())) sc += k.length; if (sc > fs) { fs = sc; fb = f; } }
+  const saved = S.lang; S.lang = lg;
+  try {
+    if (best && (asksBin || bs >= fs)) return itemAnswer(best);
+    if (fb) return fb[lg];
+    if (asksBin) return binsSummary();
+    return t('offlineDefault');
+  } finally { S.lang = saved; }
+}
+function addMsg(role, text, tag) {
+  const d = document.createElement('div'); d.className = 'msg ' + (role === 'user' ? 'user' : 'bot'); d.textContent = text;
+  if (tag) { const s = document.createElement('span'); s.className = 'tag'; s.textContent = tag; d.append(document.createElement('br'), s); }
+  const c = $('#chat'); c.append(d); c.scrollTop = c.scrollHeight; return d;
+}
+function resetChat() { state.chat = []; $('#chat').innerHTML = ''; $('#ask').value = ''; addMsg('bot', t('greet')); }
+async function sendChat(q) {
+  q = String(q || '').trim(); if (!q || state.busy) return;
+  state.busy = true; state.lastChat = Date.now(); $('#sendBtn').disabled = true; $('#ask').value = '';
+  addMsg('user', q); state.chat.push({ role: 'user', text: q });
+  const typing = document.createElement('div'); typing.className = 'msg bot typing'; typing.innerHTML = '<i></i><i></i><i></i>'; $('#chat').append(typing); $('#chat').scrollTop = 1e9;
+  let ans, offline = false;
+  try {
+    if (!navigator.onLine || !S.apiKey) throw new Error('offline');
+    ans = (await askGemini(state.chat)).text;
+  } catch (e) {
+    if (e.message !== 'offline') console.warn('Gemini:', e.message);
+    state.botErr = e.message; ans = offlineAnswer(q); offline = true;
+  }
+  typing.remove();
+  addMsg('bot', ans, offline ? t('offlineTag') : '');
+  state.chat.push({ role: 'model', text: ans });
+  logEvent({ type: 'chat', online: !offline, lang: isThai(q) ? 'th' : 'en' });
+  if (S.readAnswers) speak(ans, { lang: isThai(ans) ? 'th' : 'en', force: true });
+  state.busy = false; $('#sendBtn').disabled = false; state.lastChat = Date.now();
+}
+let rec = null;
+function toggleMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) return;
+  if (rec) { try { rec.stop(); } catch {} return; }
+  rec = new SR(); rec.lang = L() === 'th' ? 'th-TH' : 'en-US'; rec.interimResults = true; rec.maxAlternatives = 1;
+  const btn = $('#micBtn'); btn.classList.add('rec');
+  let finalText = '';
+  rec.onresult = e => { let s = ''; for (const r of e.results) { s += r[0].transcript; if (r.isFinal) finalText = s; } $('#ask').value = s; };
+  rec.onerror = e => { if (e.error !== 'aborted' && e.error !== 'no-speech') toast(t('micErr')); };
+  rec.onend = () => { btn.classList.remove('rec'); rec = null; if (finalText) sendChat(finalText); };
+  try { speechSynthesis.cancel(); } catch {}
+  try { rec.start(); } catch { btn.classList.remove('rec'); rec = null; }
+}
+
+/* ---------------- survey ---------------- */
+const sv = { who: 'tourist', ease: 0, useful: 0, intent: 0 };
+function openSurvey() {
+  Object.assign(sv, { ease: 0, useful: 0, intent: 0 });
+  $$('#survey .faces button').forEach(b => b.setAttribute('aria-pressed', 'false'));
+  $('#svSend').disabled = true; $('#survey').hidden = false;
+}
+async function sendSurvey() {
+  await DB.add('survey', { t: Date.now(), who: sv.who, ease: sv.ease, useful: sv.useful, intent: sv.intent, lang: L() }).catch(() => {});
+  $('#survey').hidden = true; toast(t('thanks'));
+}
+
+/* ---------------- PIN & admin ---------------- */
+let pinBuf = '';
+function openPin() {
+  pinBuf = ''; drawPin();
+  $('#keypad').innerHTML = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'ลบ', '0', 'ตกลง'].map(k => `<button type="button" data-k="${k}">${k}</button>`).join('');
+  $('#pinDlg').hidden = false;
+}
+function drawPin(bad) {
+  const n = Math.max(4, String(S.pin).length);
+  $('#pinDots').innerHTML = Array.from({ length: n }, (_, i) => `<i class="${i < pinBuf.length ? 'f' : ''}"></i>`).join('');
+  if (bad) { const d = $('#pinDots'); d.classList.remove('bad'); void d.offsetWidth; d.classList.add('bad'); }
+}
+function pinKey(k) {
+  if (k === 'ลบ') pinBuf = pinBuf.slice(0, -1);
+  else if (k === 'ตกลง') { checkPin(); return; }
+  else if (pinBuf.length < 6) pinBuf += k;
+  drawPin();
+  if (pinBuf.length === String(S.pin).length) checkPin();
+}
+function checkPin() {
+  if (pinBuf === String(S.pin)) { $('#pinDlg').hidden = true; openAdmin(); }
+  else { pinBuf = ''; drawPin(true); }
+}
+function openAdmin(tab) {
+  state.view = 'admin'; hideResult(); try { speechSynthesis.cancel(); } catch {}
+  $('#admin').hidden = false; showTab(tab || state.adminTab);
+}
+function closeAdmin() {
+  stopCapture(); state.testing = false;
+  saveDatasetNow();
+  state.view = 'kiosk'; $('#admin').hidden = true;
+  renderBins(); applyI18n(); updateModeBadge();
+}
+function showTab(tab) {
+  stopCapture(); state.testing = false;
+  state.adminTab = tab;
+  $$('.admin-nav [data-tab]').forEach(b => b.setAttribute('aria-current', String(b.dataset.tab === tab)));
+  const main = $('#adminMain');
+  main.innerHTML = ({ train: tabTrain, eval: tabEval, bins: tabBins, bot: tabBot, stats: tabStats, settings: tabSettings }[tab] || tabTrain)();
+  main.scrollTop = 0;
+  const pv = $('#pvVideo'); if (pv && state.stream) { pv.srcObject = state.stream; pv.play().catch(() => {}); applyMirror(); }
+  if (tab === 'stats') loadStats();
+  if (tab === 'settings') fillSettingsAsync();
+  if (tab === 'eval') drawEval();
+}
+const binOptions = sel => S.bins.map(b => `<option value="${esc(b.id)}" ${b.id === sel ? 'selected' : ''}>${esc(b.name.th)} (${esc(b.type.th)})${b.on ? '' : ' [ซ่อน]'}</option>`).join('');
+const aiNotice = () => !AI.ready ? `<div class="note err">AI ยังไม่พร้อม${AI.err ? ': ' + esc(AI.err.message || AI.err) : ' กำลังโหลด…'}</div>` : (!AI.dataOk ? `<div class="note err">ข้อมูลที่สอนไว้ในเครื่องเป็นของโมเดลอื่น จึงยังไม่ถูกใช้ กด "ล้างข้อมูลที่สอนทั้งหมด" เพื่อสอนใหม่กับ ${esc(AI.src.label)} หรือนำเข้าไฟล์โมเดลที่ตรงกัน</div>` : '');
+
+/* ----- train tab ----- */
+let selItem = BG;
+function trainChecklist() {
+  const c = AI.knn ? AI.knn.getClassExampleCount() : {};
+  const items = S.items.filter(i => i.id !== BG && (c[i.id] || 0) > 0);
+  const steps = [
+    [(c[BG] || 0) >= 40, 'สอน "พื้นหลัง" อย่างน้อย 40 ภาพ: ฉากว่าง คนยืนหน้าจอ มือเปล่า ในแสงจริงของจุดติดตั้ง'],
+    [items.length >= 3 && items.every(i => c[i.id] >= 30), 'สอนขยะแต่ละชนิดอย่างน้อย 30 ภาพ: หมุนหลายด้าน ใกล้และไกล ถือด้วยมือ (สอนแล้ว ' + items.length + ' ชนิด)'],
+    [state.evalRecs.length >= 50, 'ทดสอบความแม่นยำในแท็บ "ทดสอบความแม่นยำ" ด้วยขยะชิ้นที่ไม่เคยใช้สอน'],
+    [!!S.apiKey, 'ใส่ Gemini API Key ในแท็บ GuideBot (ถ้าไม่ใส่ แชตจะตอบจากคลังคำถามในเครื่อง)'],
+    [String(S.pin) !== '1234', 'เปลี่ยนรหัส PIN ในแท็บ "ตั้งค่าระบบ"'],
+    [!!S.exported, 'ส่งออกไฟล์โมเดลเก็บไว้ เพื่อสำรองหรือใช้กับแท็บเล็ตเครื่องอื่น']
+  ];
+  return `<ol class="steps">${steps.map(([d, s]) => `<li class="${d ? 'done' : ''}">${esc(s)}</li>`).join('')}</ol>`;
+}
+function itemCardsHTML() {
+  return S.items.map(it => {
+    const n = classCount(it.id), bin = binById(it.bin);
+    const th = state.thumbs[it.id];
+    const low = it.id === BG ? n < 40 : n < 30;
+    return `<button type="button" class="item-card" data-act="sel" data-id="${esc(it.id)}" aria-pressed="${it.id === selItem}">
+      ${th ? `<img src="${th}" alt="">` : `<span class="ph"><svg class="i"><use href="#i-cam"/></svg></span>`}
+      <span><span class="nm">${esc(it.th)}</span><br><span class="ct">${bin ? `<span class="dot" style="--c:${esc(bin.color)}"></span>${esc(bin.type.th)}` : 'ไม่พูดแจ้งเตือน'}</span>
+      <span class="ct ${low ? 'count-low' : ''}">${n} ภาพ</span></span></button>`;
+  }).join('');
+}
+function selPanelHTML() {
+  const it = itemById(selItem) || itemById(BG);
+  const isBg = it.id === BG;
+  return `<div class="field"><span class="lbl">กำลังสอน: ${esc(it.th)}</span>
+    ${isBg ? '<small>ถ่ายฉากที่ไม่มีขยะ: พื้นหลังจริง คนเดินผ่าน มือเปล่า ระบบจะเงียบเมื่อเห็นภาพแบบนี้</small>' : `<div class="inline"><select data-act="itembin">${binOptions(it.bin)}</select></div>`}</div>
+    <div class="inline">
+      <button type="button" class="btn small danger" data-act="clearclass">ล้างภาพของรายการนี้</button>
+      ${isBg ? '' : '<button type="button" class="btn small danger" data-act="delitem">ลบรายการ</button>'}
+    </div>`;
+}
+function tabTrain() {
+  return `<h3>สอน AI ให้รู้จักขยะของสถานีนี้</h3>
+  <p class="lead">เลือกชนิดขยะทางขวา แล้วกดค้างปุ่มสีเหลืองขณะหมุนขยะช้า ๆ ในกรอบ ยิ่งถ่ายหลายมุม หลายแสง และถ่ายที่จุดติดตั้งจริง ยิ่งแม่นยำ (MobileNet สกัดลักษณะภาพ แล้ว KNN จดจำจากตัวอย่าง)</p>
+  ${aiNotice()}
+  <div class="train-grid">
+    <div>
+      <div class="preview" id="pv"><video id="pvVideo" playsinline muted autoplay></video><div class="flash"></div><div class="seen" id="seen">AI เห็น: -</div></div>
+      <button type="button" class="capture-btn" id="capBtn" ${AI.ready && AI.dataOk ? '' : 'disabled'}>กดค้างเพื่อเก็บภาพ</button>
+      <p class="muted" id="capInfo" style="margin:10px 0">เลือกรายการทางขวา แล้วกดค้างปุ่มขณะหมุนขยะช้า ๆ ในกรอบ</p>
+      <div class="panel" id="selPanel">${selPanelHTML()}</div>
+    </div>
+    <div>
+      <div class="items" id="itemGrid">${itemCardsHTML()}</div>
+      <h4>เพิ่มชนิดขยะใหม่</h4>
+      <div class="panel">
+        <div class="grid2">
+          <div class="field"><label for="niTh">ชื่อภาษาไทย</label><input type="text" id="niTh" placeholder="เช่น ไม้เสียบลูกชิ้น"></div>
+          <div class="field"><label for="niEn">ชื่อภาษาอังกฤษ</label><input type="text" id="niEn" placeholder="e.g. Bamboo skewer"></div>
+          <div class="field"><label for="niBin">ทิ้งถัง</label><select id="niBin">${binOptions('blue')}</select></div>
+          <div class="field"><label for="niTip">คำแนะนำสั้น ๆ (ไม่บังคับ)</label><input type="text" id="niTip" placeholder="เช่น หักให้สั้นก่อนทิ้ง"></div>
+        </div>
+        <div class="field"><label for="niKw">คำค้นสำหรับแชตออฟไลน์ (คั่นด้วยจุลภาค)</label><input type="text" id="niKw" placeholder="ไม้เสียบ, ไม้ลูกชิ้น, skewer"></div>
+        <button type="button" class="btn primary" data-act="additem">เพิ่มรายการ</button>
+      </div>
+    </div>
+  </div>
+  <h4>ขั้นตอนเตรียมสถานี</h4>
+  <div class="panel">${trainChecklist()}</div>
+  <h4>ไฟล์โมเดล</h4>
+  <div class="panel">
+    <div class="kpis">
+      <div class="kpi"><b>${AI.src ? esc(AI.src.label.split(' ')[0] + ' ' + AI.src.label.split(' ')[1]) : '-'}</b><span>${AI.src ? esc(AI.src.label) : 'ยังไม่โหลด'}</span></div>
+      <div class="kpi"><b>${AI.dim || '-'}</b><span>มิติของลักษณะภาพ</span></div>
+      <div class="kpi"><b id="totalN">${totalSamples()}</b><span>ภาพที่สอนทั้งหมด</span></div>
+      <div class="kpi"><b id="saveLbl">${state.savedAt ? new Date(state.savedAt).toLocaleTimeString('th-TH') : 'อัตโนมัติ'}</b><span>บันทึกในเครื่องล่าสุด</span></div>
+    </div>
+    <div class="inline" style="margin-top:10px">
+      <button type="button" class="btn" data-act="savenow">บันทึกตอนนี้</button>
+      <button type="button" class="btn primary" data-act="export" ${AI.ready ? '' : 'disabled'}><svg class="i"><use href="#i-down"/></svg>ส่งออกไฟล์โมเดล</button>
+      <button type="button" class="btn" data-act="import" ${AI.ready ? '' : 'disabled'}><svg class="i"><use href="#i-up"/></svg>นำเข้าไฟล์โมเดล</button>
+      <button type="button" class="btn danger" data-act="clearall">ล้างข้อมูลที่สอนทั้งหมด</button>
+    </div>
+    <p class="muted" style="margin:12px 0 0;font-size:15px">เคล็ดลับ: ตั้งชื่อไฟล์ที่ส่งออกว่า <span class="mono">ecosort-model.json</span> แล้ววางไว้ในรีโป GitHub ข้างไฟล์ index.html แท็บเล็ตเครื่องใหม่ที่เปิดครั้งแรกจะโหลดข้อมูลที่สอนไว้ให้อัตโนมัติ</p>
+  </div>`;
+}
+function refreshTrainUI() {
+  if (state.adminTab !== 'train') return;
+  const g = $('#itemGrid'); if (g) g.innerHTML = itemCardsHTML();
+  const p = $('#selPanel'); if (p) p.innerHTML = selPanelHTML();
+  const n = $('#totalN'); if (n) n.textContent = totalSamples();
+}
+function refreshSaveLabel() { const el = $('#saveLbl'); if (el && state.savedAt) el.textContent = new Date(state.savedAt).toLocaleTimeString('th-TH'); }
+function adminLive(p) {
+  const el = $('#seen'); if (!el) return;
+  if (!p) { el.textContent = knnUsable() ? 'AI เห็น: -' : 'AI เห็น: (ต้องสอนพื้นหลังและขยะอย่างน้อย 1 ชนิดก่อน)'; return; }
+  const it = itemById(p.label);
+  el.textContent = `AI เห็น: ${it ? it.th : '-'} ${pct(p.conf)}${p.mode === 'knn' ? ' | ความคล้าย ' + p.sim.toFixed(2) : ' (โหมดพื้นฐาน)'} | ${Math.round(p.ms)} ms`;
+}
+let capTimer = null;
+function thumbFrom(video) {
+  const c = document.createElement('canvas'); c.width = c.height = 96; const x = c.getContext('2d');
+  const w = video.videoWidth, h = video.videoHeight, s = Math.min(w, h);
+  if (S.mirror) { x.translate(96, 0); x.scale(-1, 1); }
+  x.drawImage(video, (w - s) / 2, (h - s) / 2, s, s, 0, 0, 96, 96);
+  return c.toDataURL('image/jpeg', 0.7);
+}
+function captureOne() {
+  const video = srcVideo(); if (!AI.ready || !video.videoWidth) return;
+  const out = infer(video);
+  try { AI.knn.addExample(out[0], selItem); } finally { out.forEach(x => x.dispose()); }
+  const n = classCount(selItem);
+  if (n === 1 || n % 15 === 0) state.thumbs[selItem] = thumbFrom(video);
+  const pv = $('#pv'); if (pv) { pv.classList.add('cap'); setTimeout(() => pv.classList.remove('cap'), 70); }
+  const info = $('#capInfo'); if (info) info.textContent = `${itemById(selItem)?.th}: ${n} ภาพ`;
+}
+function startCapture() {
+  if (capTimer || !AI.ready || !AI.dataOk) return;
+  $('#capBtn')?.classList.add('down');
+  captureOne(); capTimer = setInterval(captureOne, 110);
+}
+function stopCapture() {
+  if (!capTimer) return;
+  clearInterval(capTimer); capTimer = null;
+  $('#capBtn')?.classList.remove('down');
+  refreshTrainUI(); scheduleSave(); updateModeBadge();
+}
+
+/* ----- eval tab ----- */
+function tabEval() {
+  const classes = S.items.filter(i => classCount(i.id) > 0);
+  if (!state.evalTrue || !classes.find(c => c.id === state.evalTrue)) state.evalTrue = classes[0]?.id || BG;
+  return `<h3>ทดสอบความแม่นยำ</h3>
+  <p class="lead">ใช้ขยะชิ้นจริงที่ไม่เคยใช้ตอนสอน เลือกคำตอบที่ถูกต้อง แล้วกดค้างให้ AI ทาย ผลจะถูกเก็บเป็น Confusion Matrix โดยไม่เพิ่มเข้าโมเดล เป้าหมายของโครงงาน: ความแม่นยำรวมไม่ต่ำกว่า 85% และเวลาตอบสนองน้อยกว่า 1 วินาที</p>
+  ${aiNotice()}
+  <div class="train-grid">
+    <div>
+      <div class="preview" id="pv"><video id="pvVideo" playsinline muted autoplay></video><div class="flash"></div><div class="seen" id="seen">พร้อมทดสอบ</div></div>
+      <div class="field" style="margin-top:12px"><label for="evTrue">ขยะที่ถืออยู่จริงคือ</label>
+        <select id="evTrue">${classes.map(c => `<option value="${esc(c.id)}" ${c.id === state.evalTrue ? 'selected' : ''}>${esc(c.th)}</option>`).join('')}</select></div>
+      <button type="button" class="capture-btn" id="evBtn" ${knnUsable() ? '' : 'disabled'}>กดค้างเพื่อทดสอบ</button>
+      ${knnUsable() ? '' : '<p class="note">ต้องสอนพื้นหลังและขยะอย่างน้อย 1 ชนิดก่อนจึงจะทดสอบได้</p>'}
+    </div>
+    <div id="evalOut"></div>
+  </div>`;
+}
+async function evalTick() {
+  const video = srcVideo(); if (!knnUsable() || !video.videoWidth) return;
+  const t0 = now(); const out = infer(video);
+  let p; try { p = await knnPredict(out[0]); } finally { out.forEach(x => x.dispose()); }
+  const ms = now() - t0;
+  state.evalRecs.push({ y: state.evalTrue, p: p.label, conf: +p.conf.toFixed(3), ms: Math.round(ms) });
+  const seen = $('#seen'); if (seen) seen.textContent = `ทาย: ${itemById(p.label)?.th || p.label} ${pct(p.conf)} | ${Math.round(ms)} ms | ${p.label === state.evalTrue ? 'ถูก' : 'ผิด'}`;
+  if (state.evalRecs.length % 5 === 0) drawEval();
+}
+function drawEval() {
+  const box = $('#evalOut'); if (!box) return;
+  const R = state.evalRecs;
+  const labels = [...new Set([...S.items.filter(i => classCount(i.id) > 0).map(i => i.id), ...R.map(r => r.y), ...R.map(r => r.p)])].filter(Boolean);
+  const M = {}; labels.forEach(a => { M[a] = {}; labels.forEach(b => M[a][b] = 0); });
+  R.forEach(r => { if (M[r.y] && r.p in M[r.y]) M[r.y][r.p]++; });
+  const correct = R.filter(r => r.y === r.p).length;
+  const acc = R.length ? correct / R.length : 0;
+  const ms = R.length ? R.reduce((a, r) => a + r.ms, 0) / R.length : 0;
+  const nm = id => itemById(id)?.th || id;
+  const maxCell = Math.max(1, ...labels.flatMap(a => labels.map(b => M[a][b])));
+  const rowsUsed = labels.filter(a => labels.some(b => M[a][b] > 0));
+  const colsUsed = labels.filter(b => labels.some(a => M[a][b] > 0)) ;
+  const perClass = rowsUsed.map(a => { const tot = labels.reduce((s, b) => s + M[a][b], 0); return `<tr><th class="rowh">${esc(nm(a))}</th><td>${tot}</td><td>${tot ? pct(M[a][a] / tot) : '-'}</td></tr>`; }).join('');
+  box.innerHTML = `
+    <div class="kpis">
+      <div class="kpi"><b>${R.length ? (acc * 100).toFixed(1) + '%' : '-'}</b><span>ความแม่นยำรวม (Accuracy)</span></div>
+      <div class="kpi"><b>${R.length}</b><span>ภาพที่ทดสอบ</span></div>
+      <div class="kpi"><b>${R.length ? Math.round(ms) + ' ms' : '-'}</b><span>เวลาประมวลผลเฉลี่ยต่อภาพ</span></div>
+    </div>
+    ${R.length && acc < 0.85 ? '<p class="note">ต่ำกว่าเป้า 85% ลองสอนภาพเพิ่มในรายการที่ทายผิดบ่อย หรือสอนพื้นหลังเพิ่ม</p>' : ''}
+    ${R.length ? `<h4>Confusion Matrix (แถว = ของจริง, คอลัมน์ = AI ทาย)</h4>
+    <div class="table-wrap"><table class="cm"><tr><th></th>${colsUsed.map(b => `<th>${esc(nm(b))}</th>`).join('')}</tr>
+    ${rowsUsed.map(a => `<tr><th class="rowh">${esc(nm(a))}</th>${colsUsed.map(b => { const v = M[a][b]; const a2 = v / maxCell; const bg = a === b ? `rgba(44,122,80,${0.12 + a2 * 0.6})` : (v ? `rgba(180,35,24,${0.08 + a2 * 0.5})` : '#fff'); return `<td class="${a === b ? 'diag' : ''}" style="background:${bg};color:${a2 > 0.55 ? '#fff' : 'inherit'}">${v || ''}</td>`; }).join('')}</tr>`).join('')}
+    </table></div>
+    <h4>ความแม่นยำรายชนิด (Recall)</h4>
+    <div class="table-wrap"><table class="cm"><tr><th class="rowh">ชนิด</th><th>จำนวน</th><th>ถูกต้อง</th></tr>${perClass}</table></div>` : '<p class="muted">ยังไม่มีผลทดสอบ</p>'}
+    <div class="inline" style="margin-top:14px">
+      <button type="button" class="btn" data-act="evcsv" ${R.length ? '' : 'disabled'}><svg class="i"><use href="#i-down"/></svg>ส่งออก CSV</button>
+      <button type="button" class="btn danger" data-act="evclear" ${R.length ? '' : 'disabled'}>ล้างผลทดสอบ</button>
+    </div>`;
+  DB.set('evalRecs', R).catch(() => {});
+}
+
+/* ----- bins tab ----- */
+const ICONS = [['leaf', 'ใบไม้'], ['recycle', 'รีไซเคิล'], ['trash', 'ถังขยะ'], ['warn', 'อันตราย'], ['med', 'การแพทย์'], ['bottle', 'ขวด']];
+function tabBins() {
+  return `<h3>ถังขยะ</h3>
+  <p class="lead">ตั้งสีและชื่อให้ตรงกับถังจริง แล้วเรียงลำดับจากซ้ายไปขวาให้ตรงกับถังที่วางใต้จอ หน้าจอจะชี้ลงไปที่ถังที่ถูกต้อง</p>
+  <div class="panel">${S.bins.map((b, i) => `
+    <div class="bin-row" data-i="${i}">
+      <div class="ord"><button type="button" class="btn small" data-act="binup" ${i === 0 ? 'disabled' : ''} aria-label="เลื่อนซ้าย">▲</button><button type="button" class="btn small" data-act="bindown" ${i === S.bins.length - 1 ? 'disabled' : ''} aria-label="เลื่อนขวา">▼</button></div>
+      <input type="color" value="${esc(b.color)}" data-bf="color" aria-label="สีถัง">
+      <div><input type="text" value="${esc(b.name.th)}" data-bf="name.th" placeholder="ชื่อถัง (ไทย)"><input type="text" value="${esc(b.type.th)}" data-bf="type.th" placeholder="ประเภท (ไทย)"><input type="text" value="${esc(b.ex.th)}" data-bf="ex.th" placeholder="ตัวอย่าง (ไทย)"></div>
+      <div><input type="text" value="${esc(b.name.en)}" data-bf="name.en" placeholder="Bin name (EN)"><input type="text" value="${esc(b.type.en)}" data-bf="type.en" placeholder="Type (EN)"><input type="text" value="${esc(b.ex.en)}" data-bf="ex.en" placeholder="Examples (EN)"></div>
+      <div class="inline" style="flex-direction:column;align-items:stretch">
+        <label class="inline" style="font-size:15px"><input type="checkbox" data-bf="on" ${b.on ? 'checked' : ''}> ใช้งาน</label>
+        <select data-bf="icon" aria-label="ไอคอน">${ICONS.map(([k, n]) => `<option value="${k}" ${k === b.icon ? 'selected' : ''}>${n}</option>`).join('')}</select>
+      </div>
+    </div>`).join('')}
+  </div>
+  <div class="inline"><button type="button" class="btn" data-act="binreset">คืนค่าถังเริ่มต้น</button></div>`;
+}
+
+/* ----- bot tab ----- */
+function tabBot() {
+  return `<h3>GuideBot (Gemini API)</h3>
+  <p class="lead">ถ้ามีอินเทอร์เน็ตและใส่ API Key ไว้ GuideBot จะตอบด้วย Gemini ถ้าไม่มี จะตอบจากคลังคำถามในเครื่องโดยอัตโนมัติ</p>
+  <div class="note">ความปลอดภัย: อย่าใส่ API Key ลงในไฟล์ HTML ที่อัปโหลดขึ้น GitHub เพราะใครก็เห็นได้ ให้ใส่ที่หน้านี้บนแท็บเล็ตแต่ละเครื่องเท่านั้น (เก็บในเครื่อง) และตั้งข้อจำกัดคีย์ใน Google Cloud ให้ใช้ได้เฉพาะเว็บไซต์ของคุณ</div>
+  <div class="panel">
+    <div class="field"><label for="apiKey">Gemini API Key</label>
+      <div class="inline"><input type="password" id="apiKey" value="${esc(S.apiKey)}" placeholder="วางคีย์จาก aistudio.google.com/apikey" autocomplete="off" spellcheck="false"><button type="button" class="btn small" data-act="showkey">แสดง</button></div>
+      <small>สร้างคีย์ฟรีได้ที่ aistudio.google.com/apikey</small></div>
+    <div class="field"><label for="model">โมเดล</label>
+      <div class="inline"><input type="text" id="model" list="modelList" value="${esc(S.model)}" spellcheck="false"><button type="button" class="btn small" data-act="listmodels">ดึงรายชื่อโมเดล</button></div>
+      <datalist id="modelList">${GEMINI_FALLBACKS.map(m => `<option value="${m}">`).join('')}</datalist>
+      <small>ค่าเริ่มต้น gemini-flash-latest จะชี้ไปที่ Gemini Flash รุ่นล่าสุดเสมอ ถ้าโมเดลที่ตั้งไว้ถูกยกเลิก ระบบจะลองรุ่นสำรองให้อัตโนมัติ</small></div>
+    <div class="inline"><button type="button" class="btn primary" data-act="testbot">ทดสอบการเชื่อมต่อ</button></div>
+    <div id="botOut"></div>
+  </div>
+  <div class="panel">
+    <label class="switch"><span>อ่านคำตอบออกเสียง<small>GuideBot พูดคำตอบด้วยเสียงภาษาไทย/อังกฤษ</small></span><input type="checkbox" data-set="readAnswers" ${S.readAnswers ? 'checked' : ''}></label>
+  </div>
+  <h4>คำสั่งระบบ (System Instructions)</h4>
+  <div class="field"><textarea id="sysPrompt" rows="10">${esc(S.systemPrompt)}</textarea><small>ระบบจะต่อท้ายข้อมูลถังขยะ รายการขยะ และข้อมูลสถานที่ให้อัตโนมัติ</small></div>
+  <div class="inline"><button type="button" class="btn small" data-act="resetprompt">คืนค่าเริ่มต้น</button></div>
+  <h4>ข้อมูลสถานที่ (Knowledge)</h4>
+  <div class="field"><textarea id="kb" rows="16">${esc(S.kb)}</textarea><small>แก้ไขให้ตรงกับข้อมูลจริงของมาลัยฟาร์ม เช่น เวลาเปิด ราคา จุดบริการ GuideBot จะใช้ข้อมูลนี้ตอบ</small></div>
+  <div class="inline"><button type="button" class="btn small" data-act="resetkb">คืนค่าเริ่มต้น</button></div>`;
+}
+
+/* ----- stats tab ----- */
+function tabStats() {
+  return `<h3>สถิติการใช้งานและแบบประเมิน</h3>
+  <p class="lead">ข้อมูลเก็บในแท็บเล็ตเครื่องนี้ ใช้ประกอบรายงานผลการทดลองภาคสนามและความพึงพอใจ (TAM: ความง่าย ประโยชน์ และความตั้งใจใช้)</p>
+  <div id="statsOut"><p class="muted">กำลังโหลด…</p></div>`;
+}
+async function loadStats() {
+  const box = $('#statsOut'); if (!box) return;
+  const [ev, sv] = await Promise.all([DB.all('events').catch(() => []), DB.all('survey').catch(() => [])]);
+  const sorts = ev.filter(e => e.type === 'sort'), chats = ev.filter(e => e.type === 'chat');
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const todayN = sorts.filter(e => e.t >= today.getTime()).length;
+  const lat = sorts.filter(e => e.ms > 0).map(e => e.ms);
+  const avgLat = lat.length ? lat.reduce((a, b) => a + b, 0) / lat.length : 0;
+  const under1s = lat.length ? lat.filter(x => x < 1000).length / lat.length : 0;
+  const byBin = {}; sorts.forEach(e => byBin[e.bin] = (byBin[e.bin] || 0) + 1);
+  const byItem = {}; sorts.forEach(e => byItem[e.item] = (byItem[e.item] || 0) + 1);
+  const maxB = Math.max(1, ...Object.values(byBin)); const maxI = Math.max(1, ...Object.values(byItem));
+  const avg = (arr, k) => arr.length ? (arr.reduce((a, r) => a + (r[k] || 0), 0) / arr.length) : 0;
+  const groups = [['ทั้งหมด', sv], ['นักท่องเที่ยว', sv.filter(r => r.who === 'tourist')], ['เจ้าหน้าที่', sv.filter(r => r.who === 'staff')]];
+  box.innerHTML = `
+  <div class="kpis">
+    <div class="kpi"><b>${todayN}</b><span>แยกขยะวันนี้ (ครั้ง)</span></div>
+    <div class="kpi"><b>${sorts.length}</b><span>แยกขยะทั้งหมด</span></div>
+    <div class="kpi"><b>${lat.length ? (avgLat / 1000).toFixed(2) + ' วิ' : '-'}</b><span>เวลาตอบสนองเฉลี่ย (กล้องถึงเสียง)</span></div>
+    <div class="kpi"><b>${lat.length ? pct(under1s) : '-'}</b><span>สัดส่วนที่เร็วกว่า 1 วินาที</span></div>
+    <div class="kpi"><b>${chats.length}</b><span>คำถามถึง GuideBot</span></div>
+    <div class="kpi"><b>${sv.length}</b><span>แบบประเมินที่ได้รับ</span></div>
+  </div>
+  <div class="grid2">
+    <div class="panel"><strong>ตามถังขยะ</strong><div class="bars" style="margin-top:10px">${S.bins.map(b => `<div class="bar" style="--c:${esc(b.color)}"><span>${esc(b.type.th)}</span><span class="track"><span class="fill" style="width:${(byBin[b.id] || 0) / maxB * 100}%"></span></span><span class="v">${byBin[b.id] || 0}</span></div>`).join('')}</div></div>
+    <div class="panel"><strong>ตามชนิดขยะ</strong><div class="bars" style="margin-top:10px">${Object.entries(byItem).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([k, v]) => { const it = itemById(k); const b = it && binById(it.bin); return `<div class="bar" style="--c:${b ? esc(b.color) : '#999'}"><span>${esc(it ? it.th : k)}</span><span class="track"><span class="fill" style="width:${v / maxI * 100}%"></span></span><span class="v">${v}</span></div>`; }).join('') || '<p class="muted">ยังไม่มีข้อมูล</p>'}</div></div>
+  </div>
+  <div class="panel"><strong>ผลแบบประเมิน (คะแนนเฉลี่ยเต็ม 5)</strong>
+    <div class="table-wrap"><table class="cm" style="margin-top:10px"><tr><th class="rowh">กลุ่ม</th><th>จำนวน</th><th>ใช้งานง่าย</th><th>ประโยชน์ที่ได้รับ</th><th>ความตั้งใจใช้</th></tr>
+    ${groups.map(([n, g]) => `<tr><th class="rowh">${n}</th><td>${g.length}</td><td>${g.length ? avg(g, 'ease').toFixed(2) : '-'}</td><td>${g.length ? avg(g, 'useful').toFixed(2) : '-'}</td><td>${g.length ? avg(g, 'intent').toFixed(2) : '-'}</td></tr>`).join('')}
+    </table></div></div>
+  <div class="inline">
+    <button type="button" class="btn" data-act="evcsv2" ${ev.length ? '' : 'disabled'}><svg class="i"><use href="#i-down"/></svg>ส่งออกบันทึกการใช้งาน (CSV)</button>
+    <button type="button" class="btn" data-act="svcsv" ${sv.length ? '' : 'disabled'}><svg class="i"><use href="#i-down"/></svg>ส่งออกแบบประเมิน (CSV)</button>
+    <button type="button" class="btn danger" data-act="clearstats">ล้างสถิติทั้งหมด</button>
+  </div>`;
+}
+
+/* ----- settings tab ----- */
+function rangeField(key, label, min, max, step, unit, help) {
+  return `<div class="field"><label for="r_${key}">${label}: <b data-val="${key}">${S[key]}${unit}</b></label><input type="range" id="r_${key}" data-set="${key}" data-unit="${unit}" min="${min}" max="${max}" step="${step}" value="${S[key]}">${help ? `<small>${help}</small>` : ''}</div>`;
+}
+function sw(key, label, help) { return `<label class="switch"><span>${label}${help ? `<small>${help}</small>` : ''}</span><input type="checkbox" data-set="${key}" ${S[key] ? 'checked' : ''}></label>`; }
+function tabSettings() {
+  return `<h3>ตั้งค่าระบบ</h3>
+  <h4>การตรวจจับ</h4>
+  <div class="panel grid2">
+    <div>${rangeField('threshold', 'ความมั่นใจขั้นต่ำก่อนพูดแจ้งเตือน', 50, 95, 1, '%', 'ตามโครงงานใช้ 75%')}
+    ${rangeField('stableFrames', 'ต้องเห็นซ้ำติดกันกี่เฟรม', 1, 8, 1, '', 'กันการพูดผิดจากภาพที่กระพริบ')}
+    ${rangeField('cooldown', 'เว้นระยะก่อนพูดชิ้นเดิมซ้ำ', 2, 20, 1, ' วิ', 'กันเสียงพูดซ้ำซ้อน')}</div>
+    <div>${rangeField('k', 'ค่า K ของ KNN', 1, 15, 1, '', 'จำนวนภาพที่ใกล้ที่สุดที่ใช้โหวต')}
+    ${rangeField('minSim', 'ความคล้ายขั้นต่ำ (0 = ปิด)', 0, 95, 1, '%', 'ตัดวัตถุที่ไม่เคยสอน ดูค่าความคล้ายในหน้า สอน AI ประกอบ')}
+    ${rangeField('interval', 'รอบการประมวลผล', 60, 400, 10, ' ms', 'ค่าน้อยตอบไวขึ้นแต่เครื่องร้อนขึ้น')}</div>
+  </div>
+  <div class="panel">${sw('zeroShot', 'ใช้โหมดพื้นฐานเมื่อยังไม่ได้สอน', 'ใช้ความรู้ทั่วไปของ MobileNet (ImageNet) ทายขยะทั่วไปบางชนิด ความแม่นยำต่ำกว่าการสอนจริง')}
+    ${rangeField('zsThreshold', 'ความมั่นใจขั้นต่ำของโหมดพื้นฐาน', 20, 90, 1, '%', '')}</div>
+  <h4>เสียง</h4>
+  <div class="panel grid2">
+    <div><div class="field"><label for="voiceTh">เสียงภาษาไทย</label><select id="voiceTh" data-set="voiceTh"></select></div>
+    <div class="field"><label for="voiceEn">เสียงภาษาอังกฤษ</label><select id="voiceEn" data-set="voiceEn"></select></div>
+    ${rangeField('voiceRate', 'ความเร็วเสียงพูด', 0.7, 1.4, 0.05, 'x', '')}
+    ${sw('speakTips', 'พูดคำแนะนำเพิ่มเติม', 'เช่น เทน้ำออกก่อน')}</div>
+    <div><div class="field"><label for="tplTh">ประโยคแจ้งเตือน (ไทย)</label><input type="text" id="tplTh" data-set="tplTh" value="${esc(S.tplTh)}"><small>ใช้ {item} {bin} {type}</small></div>
+    <div class="field"><label for="tplEn">ประโยคแจ้งเตือน (อังกฤษ)</label><input type="text" id="tplEn" data-set="tplEn" value="${esc(S.tplEn)}"></div>
+    <div class="inline"><button type="button" class="btn" data-act="testvoice">ทดสอบเสียงไทย</button><button type="button" class="btn" data-act="testvoiceen">ทดสอบเสียงอังกฤษ</button></div>
+    <p class="muted" id="voiceNote" style="font-size:14.5px"></p></div>
+  </div>
+  <h4>กล้องและโมเดล</h4>
+  <div class="panel grid2">
+    <div><div class="field"><label for="camSel">กล้อง</label><select id="camSel"><option value="">อัตโนมัติ (กล้องหน้า)</option></select></div>
+    ${sw('mirror', 'กลับภาพซ้ายขวา (เหมือนกระจก)', 'เหมาะกับกล้องหน้า')}
+    <div class="inline" style="margin-top:10px"><button type="button" class="btn" data-act="restartcam">เริ่มกล้องใหม่</button></div></div>
+    <div><div class="field"><label for="modelSize">ขนาดโมเดล MobileNet</label><select id="modelSize"><option value="standard" ${S.modelSize === 'standard' ? 'selected' : ''}>มาตรฐาน (แม่นยำกว่า)</option><option value="lite" ${S.modelSize === 'lite' ? 'selected' : ''}>เบา (สำหรับแท็บเล็ตรุ่นเก่า)</option></select>
+      <small>ใช้อยู่: ${AI.src ? esc(AI.src.label) : '-'} บน ${esc(AI.backend || '-')} | เปลี่ยนขนาดแล้วต้องสอนใหม่</small></div>
+    <button type="button" class="btn" data-act="reloadmodel">ใช้ขนาดนี้และโหลดใหม่</button></div>
+  </div>
+  <h4>หน้าจอสถานี</h4>
+  <div class="panel">
+    ${sw('autoFullscreen', 'เปิดเต็มจอเมื่อแตะเริ่ม')}
+    ${sw('showSurvey', 'แสดงปุ่มให้คะแนนระบบ', 'ใช้เก็บแบบประเมินความพึงพอใจ')}
+    ${rangeField('idleReset', 'ล้างบทสนทนาเมื่อไม่มีคนใช้', 30, 300, 10, ' วิ', 'เพื่อความเป็นส่วนตัวของผู้ใช้คนถัดไป')}
+    <div class="inline"><button type="button" class="btn" data-act="fullscreen">เต็มจอตอนนี้</button></div>
+  </div>
+  <h4>ความปลอดภัย</h4>
+  <div class="panel"><div class="field"><label for="newPin">รหัส PIN ใหม่ (ตัวเลข 4-6 หลัก)</label><div class="inline"><input type="password" id="newPin" inputmode="numeric" maxlength="6" autocomplete="off"><button type="button" class="btn primary" data-act="savepin">บันทึก PIN</button></div></div></div>
+  <h4>ระบบ</h4>
+  <div class="panel">
+    <div id="sysInfo" class="muted" style="font-size:15px">กำลังตรวจสอบ…</div>
+    <div class="inline" style="margin-top:12px">
+      <button type="button" class="btn" data-act="exportset"><svg class="i"><use href="#i-down"/></svg>ส่งออกการตั้งค่า</button>
+      <button type="button" class="btn" data-act="importset"><svg class="i"><use href="#i-up"/></svg>นำเข้าการตั้งค่า</button>
+      <button type="button" class="btn danger" data-act="factory">ล้างทุกอย่างกลับค่าเริ่มต้น</button>
+    </div>
+  </div>`;
+}
+async function fillSettingsAsync() {
+  loadVoices();
+  const fill = (id, lang, cur) => {
+    const sel = $(id); if (!sel) return;
+    const vs = VOICES.filter(v => v.lang && v.lang.toLowerCase().replace('_', '-').startsWith(lang));
+    sel.innerHTML = `<option value="">อัตโนมัติ</option>` + vs.map(v => `<option value="${esc(v.voiceURI)}" ${v.voiceURI === cur ? 'selected' : ''}>${esc(v.name)} (${esc(v.lang)})</option>`).join('');
+  };
+  fill('#voiceTh', 'th', S.voiceTh); fill('#voiceEn', 'en', S.voiceEn);
+  const vn = $('#voiceNote');
+  if (vn) vn.textContent = VOICES.some(v => /^th/i.test(v.lang)) ? '' : 'ไม่พบเสียงภาษาไทยในเครื่อง: Android ให้ติดตั้งข้อมูลเสียงภาษาไทยใน การตั้งค่า > การเข้าถึง > เอาต์พุตการอ่านออกเสียง (Google TTS)';
+  try {
+    const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+    const sel = $('#camSel'); if (sel) sel.innerHTML = `<option value="">อัตโนมัติ (กล้องหน้า)</option>` + devs.map((d, i) => `<option value="${esc(d.deviceId)}" ${d.deviceId === S.cameraId ? 'selected' : ''}>${esc(d.label || 'กล้อง ' + (i + 1))}</option>`).join('');
+  } catch {}
+  let est = '';
+  try { const e = await navigator.storage.estimate(); est = `${(e.usage / 1048576).toFixed(1)} MB จาก ${(e.quota / 1048576).toFixed(0)} MB`; } catch {}
+  let persisted = false; try { persisted = await navigator.storage.persisted(); } catch {}
+  const info = $('#sysInfo'); if (info) info.innerHTML = `
+    เวอร์ชัน ${APP_VERSION} | TensorFlow.js ${window.tf ? esc(tf.version.tfjs) : '-'} (${esc(AI.backend || '-')})<br>
+    โหมดออฟไลน์ (sw.js): ${state.sw === true ? '<b style="color:var(--meadow)">พร้อม</b> เปิดแอปได้แม้ไม่มีอินเทอร์เน็ต' : 'ไม่พบไฟล์ sw.js ข้าง index.html (ใช้งานออนไลน์ได้ปกติ)'}<br>
+    พื้นที่ในเครื่อง: ${esc(est || '-')} ${persisted ? '(ป้องกันการลบอัตโนมัติแล้ว)' : ''}<br>
+    กล้อง: ${state.stream ? 'ทำงาน' : 'ไม่ทำงาน'} | ${navigator.onLine ? 'ออนไลน์' : 'ออฟไลน์'}`;
+}
+
+/* ----- admin events ----- */
+function bindAdmin() {
+  const main = $('#adminMain');
+  $$('.admin-nav [data-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+  $('#adminClose').addEventListener('click', closeAdmin);
+
+  main.addEventListener('pointerdown', e => {
+    if (e.target.closest('#capBtn')) { e.preventDefault(); e.target.closest('#capBtn').setPointerCapture?.(e.pointerId); startCapture(); }
+    if (e.target.closest('#evBtn') && knnUsable()) { e.preventDefault(); state.evalTrue = $('#evTrue').value; state.testing = true; $('#evBtn').classList.add('down'); }
+  });
+  const up = () => { stopCapture(); if (state.testing) { state.testing = false; $('#evBtn')?.classList.remove('down'); drawEval(); } };
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => main.addEventListener(ev, up));
+  window.addEventListener('blur', up);
+
+  main.addEventListener('click', async e => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const act = b.dataset.act;
+    try {
+      if (act === 'sel') { selItem = b.dataset.id; refreshTrainUI(); const info = $('#capInfo'); if (info) info.textContent = `${itemById(selItem).th}: ${classCount(selItem)} ภาพ`; }
+      else if (act === 'clearclass') { if (classCount(selItem) && confirm(`ล้างภาพทั้งหมดของ "${itemById(selItem).th}"?`)) { AI.knn.clearClass(selItem); delete state.thumbs[selItem]; refreshTrainUI(); scheduleSave(); updateModeBadge(); } }
+      else if (act === 'delitem') { const it = itemById(selItem); if (it && it.id !== BG && confirm(`ลบรายการ "${it.th}"?`)) { if (classCount(it.id)) AI.knn.clearClass(it.id); delete state.thumbs[it.id]; S.items = S.items.filter(x => x.id !== it.id); selItem = BG; saveSettings(); refreshTrainUI(); scheduleSave(); } }
+      else if (act === 'additem') {
+        const th = $('#niTh').value.trim(); if (!th) { toast('ใส่ชื่อภาษาไทยก่อน'); return; }
+        const tip = $('#niTip').value.trim();
+        const it = { id: 'c' + Date.now().toString(36), th, en: $('#niEn').value.trim() || th, bin: $('#niBin').value, tip: { th: tip, en: '' }, kw: $('#niKw').value.split(',').map(s => s.trim()).filter(Boolean) };
+        S.items.push(it); selItem = it.id; saveSettings(); refreshTrainUI(); ['#niTh', '#niEn', '#niTip', '#niKw'].forEach(s => $(s).value = ''); toast('เพิ่ม "' + th + '" แล้ว เริ่มเก็บภาพได้เลย');
+      }
+      else if (act === 'savenow') { await saveDatasetNow(); toast('บันทึกแล้ว'); }
+      else if (act === 'export') { await exportModelFile(); toast('ส่งออกไฟล์ ecosort-model.json แล้ว'); }
+      else if (act === 'import') { pickFile(async obj => { await importModelObj(obj); toast('นำเข้าโมเดลแล้ว ' + totalSamples() + ' ภาพ'); showTab('train'); }); }
+      else if (act === 'clearall') { if (confirm('ล้างข้อมูลที่สอนทั้งหมด? (ควรส่งออกไฟล์สำรองก่อน)')) { AI.knn.clearAllClasses(); state.thumbs = {}; AI.dataOk = true; await DB.del('dataset').catch(() => {}); await saveDatasetNow(); showTab('train'); updateModeBadge(); } }
+      else if (act === 'evcsv') { download('ecosort-accuracy-test.csv', csv([['true', 'predicted', 'true_name', 'predicted_name', 'confidence', 'ms', 'correct'], ...state.evalRecs.map(r => [r.y, r.p, itemById(r.y)?.th, itemById(r.p)?.th, r.conf, r.ms, r.y === r.p ? 1 : 0])]), 'text/csv'); }
+      else if (act === 'evclear') { if (confirm('ล้างผลทดสอบทั้งหมด?')) { state.evalRecs = []; drawEval(); } }
+      else if (act === 'binup' || act === 'bindown') { const i = +b.closest('.bin-row').dataset.i, j = act === 'binup' ? i - 1 : i + 1; [S.bins[i], S.bins[j]] = [S.bins[j], S.bins[i]]; saveSettings(); renderBins(); showTab('bins'); }
+      else if (act === 'binreset') { if (confirm('คืนค่าถังทั้ง 5 ใบเป็นค่าเริ่มต้น?')) { S.bins = clone(DEFAULT_BINS); saveSettings(); renderBins(); showTab('bins'); } }
+      else if (act === 'showkey') { const k = $('#apiKey'); k.type = k.type === 'password' ? 'text' : 'password'; b.textContent = k.type === 'password' ? 'แสดง' : 'ซ่อน'; }
+      else if (act === 'listmodels') { await listModels(); }
+      else if (act === 'testbot') { await testBot(); }
+      else if (act === 'resetprompt') { S.systemPrompt = DEFAULT_PROMPT; $('#sysPrompt').value = DEFAULT_PROMPT; saveSettings(); }
+      else if (act === 'resetkb') { S.kb = DEFAULT_KB; $('#kb').value = DEFAULT_KB; saveSettings(); }
+      else if (act === 'evcsv2') { const ev = await DB.all('events'); download('ecosort-usage-log.csv', csv([['time', 'type', 'item', 'item_name', 'bin', 'confidence', 'latency_ms', 'mode', 'online', 'lang'], ...ev.map(e => [dstr(e.t), e.type, e.item || '', itemById(e.item)?.th || '', e.bin || '', e.conf ?? '', e.ms ?? '', e.mode || '', e.online ?? '', e.lang || ''])]), 'text/csv'); }
+      else if (act === 'svcsv') { const sv = await DB.all('survey'); download('ecosort-survey.csv', csv([['time', 'respondent', 'ease_of_use', 'usefulness', 'intention', 'lang'], ...sv.map(r => [dstr(r.t), r.who, r.ease, r.useful, r.intent, r.lang])]), 'text/csv'); }
+      else if (act === 'clearstats') { if (confirm('ล้างสถิติและแบบประเมินทั้งหมด? (ควรส่งออก CSV ก่อน)')) { await DB.clear('events'); await DB.clear('survey'); loadStats(); } }
+      else if (act === 'testvoice') { speak('ขวดน้ำพลาสติก ทิ้งลงถังสีเหลือง ขยะรีไซเคิลค่ะ', { lang: 'th', force: true }); }
+      else if (act === 'testvoiceen') { speak('Plastic bottle: please use the yellow bin for recyclables.', { lang: 'en', force: true }); }
+      else if (act === 'restartcam') { await startCamera().then(() => toast('เริ่มกล้องใหม่แล้ว')).catch(err => toast(camErrorText(err), 5000)); }
+      else if (act === 'reloadmodel') { await reloadModel(); }
+      else if (act === 'fullscreen') { goFullscreen(); }
+      else if (act === 'savepin') { const p = $('#newPin').value.trim(); if (!/^\d{4,6}$/.test(p)) { toast('PIN ต้องเป็นตัวเลข 4-6 หลัก'); return; } S.pin = p; saveSettings(); $('#newPin').value = ''; toast('บันทึก PIN ใหม่แล้ว'); }
+      else if (act === 'exportset') { const o = clone(S); delete o.apiKey; delete o.pin; download('ecosort-settings.json', JSON.stringify({ format: 'ecosort-settings', version: 1, settings: o }, null, 2)); }
+      else if (act === 'importset') { pickFile(obj => { if (obj.format !== 'ecosort-settings') throw new Error('ไม่ใช่ไฟล์การตั้งค่า EcoSort'); const keep = { apiKey: S.apiKey, pin: S.pin }; S = Object.assign(clone(DEFAULTS), obj.settings, keep); saveSettings(); renderBins(); applyI18n(); showTab('settings'); toast('นำเข้าการตั้งค่าแล้ว'); }); }
+      else if (act === 'factory') { if (confirm('ล้างข้อมูลทั้งหมดในเครื่องนี้ รวมถึงการสอน AI สถิติ และการตั้งค่า?') && confirm('ยืนยันอีกครั้ง: ข้อมูลจะหายถาวร')) { localStorage.removeItem(SKEY); await Promise.all([DB.del('dataset'), DB.clear('events'), DB.clear('survey'), DB.del('evalRecs')]).catch(() => {}); location.reload(); } }
+    } catch (err) { console.error(err); toast('ผิดพลาด: ' + (err.message || err), 5000); }
+  });
+
+  main.addEventListener('input', e => {
+    const el = e.target;
+    if (el.dataset.set) {
+      const k = el.dataset.set; let v = el.type === 'checkbox' ? el.checked : el.value;
+      if (el.type === 'range') v = +v;
+      S[k] = v; saveSettings();
+      const lbl = $(`[data-val="${k}"]`); if (lbl) lbl.textContent = v + (el.dataset.unit || '');
+      if (k === 'mirror') applyMirror();
+      if (k === 'zeroShot') updateModeBadge();
+    }
+    if (el.dataset.bf) {
+      const i = +el.closest('.bin-row').dataset.i; const b = S.bins[i]; const path = el.dataset.bf.split('.');
+      const v = el.type === 'checkbox' ? el.checked : el.value;
+      if (path.length === 2) b[path[0]][path[1]] = v; else b[path[0]] = v;
+      saveSettings(); renderBins();
+    }
+    if (el.id === 'apiKey') { S.apiKey = el.value.trim(); saveSettings(); updateNet(); }
+    if (el.id === 'model') { S.model = el.value.trim(); saveSettings(); }
+    if (el.id === 'sysPrompt') { S.systemPrompt = el.value; saveSettings(); }
+    if (el.id === 'kb') { S.kb = el.value; saveSettings(); }
+  });
+  main.addEventListener('change', e => {
+    const el = e.target;
+    if (el.dataset.act === 'itembin') { const it = itemById(selItem); if (it) { it.bin = el.value; saveSettings(); refreshTrainUI(); } }
+    if (el.id === 'camSel') { S.cameraId = el.value; saveSettings(); startCamera().catch(err => toast(camErrorText(err), 5000)); }
+    if (el.id === 'modelSize') { S.modelSize = el.value; saveSettings(); }
+    if (el.id === 'evTrue') state.evalTrue = el.value;
+    if (el.dataset.set && el.tagName === 'SELECT') { S[el.dataset.set] = el.value; saveSettings(); }
+  });
+}
+function pickFile(cb) {
+  const inp = $('#filePick'); inp.value = '';
+  inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return;
+    try { await cb(JSON.parse(await f.text())); } catch (err) { console.error(err); toast('นำเข้าไม่สำเร็จ: ' + (err.message || err), 5000); }
+  };
+  inp.click();
+}
+async function listModels() {
+  const out = $('#botOut'); const key = S.apiKey.trim();
+  if (!key) { out.innerHTML = '<p class="note err">ใส่ API Key ก่อน</p>'; return; }
+  out.innerHTML = '<p class="muted">กำลังดึงรายชื่อ…</p>';
+  const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers: { 'x-goog-api-key': key } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { out.innerHTML = `<p class="note err">${esc(j.error?.message || 'HTTP ' + r.status)}</p>`; return; }
+  const ms = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent')).map(m => m.name.replace(/^models\//, '')).filter(n => /gemini/.test(n) && !/tts|image|audio|live|embedding|vision/.test(n));
+  $('#modelList').innerHTML = ms.map(m => `<option value="${esc(m)}">`).join('');
+  out.innerHTML = `<p class="note ok">พบ ${ms.length} โมเดลที่ใช้ได้ แตะช่อง "โมเดล" เพื่อเลือก แนะนำรุ่นที่มีคำว่า flash หรือ flash-lite (เร็วและประหยัด)</p>`;
+}
+async function testBot() {
+  const out = $('#botOut');
+  if (!S.apiKey) { out.innerHTML = '<p class="note err">ใส่ API Key ก่อน</p>'; return; }
+  out.innerHTML = '<p class="muted">กำลังทดสอบ…</p>';
+  const t0 = now();
+  try {
+    const r = await askGemini([{ role: 'user', text: 'แนะนำมาลัยฟาร์มสั้น ๆ หนึ่งประโยค' }]);
+    out.innerHTML = `<p class="note ok">เชื่อมต่อสำเร็จด้วย ${esc(r.model)} (${((now() - t0) / 1000).toFixed(1)} วินาที)<br>${esc(r.text)}</p>`;
+    if (r.model !== S.model) out.innerHTML += `<p class="note">โมเดล "${esc(S.model)}" ใช้ไม่ได้ ระบบใช้ ${esc(r.model)} แทน แนะนำให้เปลี่ยนในช่องโมเดล</p>`;
+  } catch (e) { out.innerHTML = `<p class="note err">ไม่สำเร็จ: ${esc(e.message)}</p>`; }
+}
+async function reloadModel() {
+  if (!window.tf) return;
+  if (totalSamples() && !confirm('ข้อมูลที่สอนไว้ผูกกับโมเดลเดิม เมื่อเปลี่ยนโมเดลจะใช้ไม่ได้และต้องสอนใหม่ (ควรส่งออกไฟล์สำรองก่อน) ดำเนินการต่อ?')) return;
+  toast('กำลังโหลดโมเดลใหม่…', 6000);
+  const m = await loadBaseModel(MODEL_ORDER[S.modelSize]);
+  if (m.id !== AI.id) {
+    if (AI.fx) AI.fx.dispose();
+    Object.assign(AI, { id: m.id, src: m.src, fx: m.fx, dim: m.dim, head: m.head });
+    AI.knn.clearAllClasses(); state.thumbs = {}; AI.dataOk = true;
+    await saveDatasetNow();
+  }
+  toast('ใช้ ' + AI.src.label + ' แล้ว'); showTab('settings'); updateModeBadge();
+}
+
+/* ---------------- kiosk helpers ---------------- */
+function goFullscreen() { const d = document.documentElement; try { (d.requestFullscreen || d.webkitRequestFullscreen)?.call(d); } catch {} }
+async function keepAwake() { try { if ('wakeLock' in navigator && document.visibilityState === 'visible') state.wl = await navigator.wakeLock.request('screen'); } catch {} }
+function registerSW() {
+  if (!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) { state.sw = false; return; }
+  navigator.serviceWorker.register('sw.js').then(() => { state.sw = true; }).catch(() => { state.sw = false; });
+}
+
+/* ---------------- boot ---------------- */
+function bindUI() {
+  $('#startBtn').addEventListener('click', startStation);
+  $('#langBtn').addEventListener('click', () => { S.lang = L() === 'th' ? 'en' : 'th'; saveSettings(); applyI18n(); renderBins(); renderChips(); resetChat(); hideResult(); updateModeBadge(); });
+  $('#muteBtn').addEventListener('click', () => { S.muted = !S.muted; saveSettings(); setMuteIcon(); if (S.muted) try { speechSynthesis.cancel(); } catch {} });
+  $('#adminBtn').addEventListener('click', openPin);
+  $('#keypad').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) pinKey(b.dataset.k); });
+  $('#pinCancel').addEventListener('click', () => { $('#pinDlg').hidden = true; });
+  $('#composer').addEventListener('submit', e => { e.preventDefault(); sendChat($('#ask').value); });
+  $('#chips').addEventListener('click', e => { const c = e.target.closest('.chip'); if (c) sendChat(c.textContent); });
+  $('#micBtn').addEventListener('click', toggleMic);
+  $('#ask').addEventListener('input', () => { state.lastChat = Date.now(); });
+  $('#rateBtn').addEventListener('click', openSurvey);
+  $('#svCancel').addEventListener('click', () => { $('#survey').hidden = true; });
+  $('#svSend').addEventListener('click', sendSurvey);
+  $('#svWho').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (!b) return; sv.who = b.dataset.v; $$('#svWho button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
+  $('#survey').addEventListener('click', e => {
+    const b = e.target.closest('.faces button'); if (!b) return;
+    const q = b.parentElement.dataset.q; sv[q] = +b.dataset.v;
+    $$('button', b.parentElement).forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    $('#svSend').disabled = !(sv.ease && sv.useful && sv.intent);
+  });
+  window.addEventListener('resize', layoutScanbox); $('#video').addEventListener('loadedmetadata', layoutScanbox);
+  window.addEventListener('online', updateNet); window.addEventListener('offline', updateNet);
+  document.addEventListener('contextmenu', e => { if (!e.target.closest('input,textarea')) e.preventDefault(); });
+  document.addEventListener('dragstart', e => e.preventDefault());
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && state.started) keepAwake(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('#pinDlg').hidden = true; $('#survey').hidden = true; } });
+  bindAdmin();
+  setInterval(() => {
+    if (state.view === 'kiosk' && state.chat.length && !state.busy && Date.now() - state.lastChat > S.idleReset * 1000) resetChat();
+  }, 5000);
+}
+let aiPromise = null;
+async function startStation() {
+  const btn = $('#startBtn'); btn.disabled = true;
+  unlockAudio();
+  if (S.autoFullscreen) goFullscreen();
+  keepAwake();
+  state.started = true;
+  setLoad('cam', 'กล้อง', 'กำลังเปิด…');
+  try { await startCamera(); setLoad('cam', 'กล้อง', 'พร้อม', 'ok'); }
+  catch (e) {
+    const m = camErrorText(e); setLoad('cam', 'กล้อง', m, 'err');
+    $('#camMsg').hidden = false; $('#camMsg').innerHTML = `<div>${esc(t('camErr'))}<small>${esc(m)}</small></div>`;
+  }
+  await aiPromise;
+  await sleep(AI.err ? 1800 : 350);
+  $('#start').hidden = true;
+  updateModeBadge();
+  if (!state.loopOn) { state.loopOn = true; loop(); }
+}
+async function boot() {
+  applyI18n(); setMuteIcon(); renderBins(); renderChips(); resetChat(); bindUI();
+  registerSW();
+  try { navigator.storage?.persist?.(); } catch {}
+  DB.get('evalRecs').then(r => { if (Array.isArray(r)) state.evalRecs = r; }).catch(() => {});
+  aiPromise = initAI();
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+
+</script>
+</body>
+</html>
