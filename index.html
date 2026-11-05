@@ -296,6 +296,13 @@ svg.i{width:1.2em;height:1.2em;flex:none;fill:none;stroke:currentColor;stroke-wi
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
 
+/* Gemini voice picker */
+.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:4px}
+.vchip{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line);background:#fff;text-align:left;min-height:58px}
+.vchip b{font:500 16px var(--f-display)}
+.vchip span{font-size:13.5px;color:var(--muted)}
+.vchip[aria-pressed=true]{border-color:var(--meadow);background:#E3F1E8;box-shadow:0 0 0 3px #CFE6D7}
+
 </style>
 </head>
 <body>
@@ -684,6 +691,7 @@ const DEFAULTS = {
   threshold: 75, stableFrames: 3, cooldown: 6, k: 7, minSim: 0, interval: 120,
   zeroShot: true, zsThreshold: 40,
   speakTips: true, voiceRate: 0.95, voicePitch: 1.0, voiceTh: '', voiceEn: '', chime: true, voiceVer: 2,
+  cloudVoice: true, ttsVoice: 'Sulafat', ttsModel: '', ttsModelOk: '',
   tplTh: '{item} ทิ้งลง{bin} {type}ค่ะ', tplEn: '{item}: please use the {bin} for {type}.',
   cameraId: '', facing: 'user', mirror: true, modelSize: 'standard',
   readAnswers: true, showSurvey: true, idleReset: 90, autoFullscreen: true,
@@ -712,8 +720,11 @@ const DB = {
   open() {
     if (!this._p) this._p = new Promise((res, rej) => {
       if (!('indexedDB' in window)) return rej(new Error('no indexedDB'));
-      const r = indexedDB.open('ecosort', 1);
-      r.onupgradeneeded = () => { const d = r.result; d.createObjectStore('kv'); d.createObjectStore('events', { autoIncrement: true }); d.createObjectStore('survey', { autoIncrement: true }); };
+      const r = indexedDB.open('ecosort', 2);
+      r.onupgradeneeded = () => {
+        const d = r.result;
+        [['kv'], ['events', { autoIncrement: true }], ['survey', { autoIncrement: true }], ['tts']].forEach(([n, o]) => { if (!d.objectStoreNames.contains(n)) d.createObjectStore(n, o); });
+      };
       r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
     });
     return this._p;
@@ -844,6 +855,7 @@ function isSpeaking() {
 }
 function stopSpeech() {
   speech.token++; speech.q = []; speech.busy = false; clearTimeout(speech.watchdog);
+  if (speech.src) { try { speech.src.onended = null; speech.src.stop(); } catch {} speech.src = null; }
   speech.keep.forEach(u => { u._dead = true; });
   if (engineBusy()) { try { speechSynthesis.cancel(); } catch {} }
 }
@@ -895,6 +907,158 @@ function speakNext(tok, voice) {
   }, 3500);
   try { speechSynthesis.speak(u); } catch (e) { console.warn(e); finishSpeech(tok); }
 }
+
+/* ---------------- Gemini TTS: the same pleasant female voice in Thai and English on every device ---------------- */
+const GEMINI_VOICES = [['Sulafat', 'อบอุ่น'], ['Despina', 'นุ่มนวล ลื่นไหล'], ['Achernar', 'นุ่ม เบา'], ['Vindemiatrix', 'อ่อนโยน'], ['Kore', 'ชัด หนักแน่น'],
+  ['Erinome', 'ชัดเจน'], ['Zephyr', 'สดใส'], ['Leda', 'สดใสแบบวัยรุ่น'], ['Aoede', 'โปร่ง สบาย ๆ'], ['Callirrhoe', 'เป็นกันเอง'],
+  ['Autonoe', 'สดใส'], ['Laomedeia', 'ร่าเริง'], ['Gacrux', 'เป็นผู้ใหญ่'], ['Pulcherrima', 'มั่นใจ']];
+const TTS_MODELS = ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts', 'gemini-3.8-flash-tts', 'gemini-3.8-flash-lite-tts'];
+const TTS_STYLE = 'v1';
+const ttsMem = new Map();
+const ttsKey = text => `${S.ttsVoice}|${TTS_STYLE}|${text}`;
+const cloudVoiceOn = () => !!S.cloudVoice && !!String(S.apiKey || '').trim();
+function ttsPrompt(text, lang) {
+  return (lang === 'th' ? 'Say in Thai, ' : 'Say ') + 'in a warm, friendly and very clear female tour-guide voice, at a calm natural pace: ' + text;
+}
+function b64ToBytes(b) { const s = atob(b); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
+async function fetchTTS(text, lang, signal) {
+  const key = String(S.apiKey || '').trim(); if (!key) throw new Error('ยังไม่ได้ใส่ API Key');
+  const models = [S.ttsModel, S.ttsModelOk, ...TTS_MODELS].filter((m, i, a) => m && a.indexOf(m) === i);
+  let lastErr = null;
+  for (const m of models) {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, {
+      method: 'POST', signal, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+      body: JSON.stringify({ contents: [{ parts: [{ text: ttsPrompt(text, lang) }] }],
+        generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: S.ttsVoice } } } } })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 404 || (r.status === 400 && /not found|not supported|does not support/i.test(j.error?.message || ''))) { lastErr = new Error('ไม่พบโมเดลเสียง ' + m); continue; }
+    if (!r.ok) {
+      const e = new Error(j.error?.message || ('HTTP ' + r.status)); e.status = r.status;
+      const d = (j.error?.details || []).find(x => x.retryDelay); e.retry = d ? (parseFloat(d.retryDelay) || 30) * 1000 : 0;
+      throw e;
+    }
+    const part = (j.candidates?.[0]?.content?.parts || []).find(x => x.inlineData && x.inlineData.data);
+    if (!part) throw new Error('ไม่ได้รับไฟล์เสียงจาก Gemini');
+    if (S.ttsModelOk !== m) { S.ttsModelOk = m; saveSettings(); }
+    return { bytes: b64ToBytes(part.inlineData.data), mime: part.inlineData.mimeType || 'audio/L16;rate=24000' };
+  }
+  throw lastErr || new Error('สร้างเสียงไม่สำเร็จ');
+}
+function ensureAC() { try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); } catch {} return AC; }
+async function toAudioBuffer(rec) {
+  ensureAC();
+  const mime = String(rec.mime || ''), bytes = rec.bytes instanceof Uint8Array ? rec.bytes : new Uint8Array(rec.bytes);
+  if (/wav|mp3|mpeg|ogg|opus|webm|aac|mp4/i.test(mime) && !/l16|pcm/i.test(mime)) return await AC.decodeAudioData(bytes.slice().buffer);
+  const rate = +((mime.match(/rate=(\d+)/) || [])[1]) || 24000;
+  const n = bytes.byteLength >> 1, dv = new DataView(bytes.buffer, bytes.byteOffset, n * 2);
+  const buf = AC.createBuffer(1, Math.max(1, n), rate), ch = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) ch[i] = dv.getInt16(i * 2, true) / 32768;
+  return buf;
+}
+const ttsDB = {
+  get: k => DB.run('tts', 'readonly', st => st.get(k)),
+  put: (k, v) => DB.run('tts', 'readwrite', st => st.put(v, k)),
+  keys: () => DB.run('tts', 'readonly', st => st.getAllKeys()),
+  clear: () => DB.clear('tts')
+};
+async function getTTS(text, lang, { fetchIfMissing = true, timeout = 10000 } = {}) {
+  const k = ttsKey(text);
+  if (ttsMem.has(k)) return ttsMem.get(k);
+  let rec = await ttsDB.get(k).catch(() => null);
+  if (!rec && fetchIfMissing && navigator.onLine && cloudVoiceOn()) {
+    const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), timeout);
+    try { const r = await fetchTTS(text, lang, ctrl.signal); rec = { bytes: r.bytes, mime: r.mime, t: Date.now() }; ttsDB.put(k, rec).catch(() => {}); }
+    finally { clearTimeout(to); }
+  }
+  if (!rec) return null;
+  const buf = await toAudioBuffer(rec);
+  ttsMem.set(k, buf); if (ttsMem.size > 60) ttsMem.delete(ttsMem.keys().next().value);
+  return buf;
+}
+function playBuffer(buf, tok, onstart) {
+  if (tok !== speech.token || !ensureAC()) return false;
+  const src = AC.createBufferSource(), g = AC.createGain();
+  src.buffer = buf;
+  g.gain.setValueAtTime(0, AC.currentTime); g.gain.linearRampToValueAtTime(1, AC.currentTime + 0.012);
+  src.connect(g).connect(AC.destination);
+  speech.src = src; speech.busy = true; speech.busyUntil = now() + buf.duration * 1000 + 1500;
+  src.onended = () => { if (speech.src === src) { speech.src = null; finishSpeech(tok); } };
+  src.start();
+  onstart && onstart();
+  return true;
+}
+// Main voice output: Gemini voice when available (cached in the device), otherwise the device's best female voice
+function say(text, { lang = L(), force = false, onstart, kind = 'chat' } = {}) {
+  if (S.muted || !text) { onstart && onstart(); return false; }
+  if (!force && isSpeaking()) return false;
+  if (!cloudVoiceOn()) return speak(text, { lang, force, onstart });
+  const clean = speechText(text, lang);
+  stopSpeech();
+  const tok = speech.token;
+  speech.busy = true; speech.busyUntil = now() + (kind === 'nudge' ? 1500 : 22000);
+  (async () => {
+    let buf = null;
+    try { buf = await getTTS(clean, lang, { fetchIfMissing: kind !== 'nudge', timeout: kind === 'test' ? 20000 : 10000 }); }
+    catch (e) { console.warn('Gemini TTS:', e.message); state.ttsErr = e.message; if (kind === 'test') toast('เสียง Gemini ใช้ไม่ได้: ' + e.message, 6000); }
+    if (tok !== speech.token) return;
+    if (buf && playBuffer(buf, tok, onstart)) return;
+    speech.busy = false;
+    speak(text, { lang, force: true, onstart });        // device voice right away
+    if (kind === 'nudge') queueTTS(clean, lang);         // prepare the Gemini voice for next time
+  })();
+  return true;
+}
+// background generation of announcement phrases (one request at a time, backs off on quota errors)
+const ttsQ = { list: [], set: new Set(), running: false, fails: 0, pauseUntil: 0 };
+function queueTTS(text, lang) {
+  if (!cloudVoiceOn()) return;
+  const k = ttsKey(text); if (ttsQ.set.has(k)) return;
+  ttsQ.set.add(k); ttsQ.list.push({ text, lang, k }); runTTSQueue();
+}
+async function runTTSQueue() {
+  if (ttsQ.running) return; ttsQ.running = true;
+  try {
+    while (ttsQ.list.length) {
+      if (!cloudVoiceOn() || !navigator.onLine) break;
+      if (now() < ttsQ.pauseUntil || isSpeaking()) { await sleep(1500); continue; }
+      const job = ttsQ.list[0];
+      const have = await DB.run('tts', 'readonly', st => st.getKey(job.k)).catch(() => undefined);
+      if (have == null) {
+        try { const r = await fetchTTS(job.text, job.lang); await ttsDB.put(job.k, { bytes: r.bytes, mime: r.mime, t: Date.now() }); ttsQ.fails = 0; state.ttsErr = ''; }
+        catch (e) {
+          ttsQ.fails++; state.ttsErr = e.message;
+          ttsQ.pauseUntil = now() + (e.status === 429 ? Math.max(e.retry || 0, 60000) : 30000);
+          updateTTSStatus(); if (ttsQ.fails >= 5) break; continue;
+        }
+        await sleep(1200);
+      }
+      ttsQ.list.shift(); ttsQ.set.delete(job.k); updateTTSStatus();
+    }
+  } finally { ttsQ.running = false; updateTTSStatus(); }
+}
+function nudgePhrases(trainedOnly) {
+  const out = [];
+  for (const lang of ['th', 'en']) for (const it of S.items) {
+    if (it.id === BG) continue;
+    const bin = binById(it.bin); if (!bin || !bin.on) continue;
+    if (trainedOnly && !classCount(it.id) && !(AI.head && S.zeroShot && ZS_MAP[it.id])) continue;
+    out.push({ text: speechText(nudgeText(it, bin, lang), lang), lang });
+  }
+  return out;
+}
+function warmPhrases(trainedOnly = true) { if (cloudVoiceOn()) nudgePhrases(trainedOnly).forEach(p => queueTTS(p.text, p.lang)); }
+async function updateTTSStatus() {
+  const el = $('#ttsStatus'); if (!el) return;
+  if (!S.apiKey) { el.innerHTML = '<p class="note">ใส่ Gemini API Key ในแท็บ GuideBot ก่อน จึงจะใช้เสียงจาก Gemini ได้ ระหว่างนี้ใช้เสียงผู้หญิงของเครื่อง</p>'; return; }
+  const ph = nudgePhrases(false);
+  const keys = new Set(await ttsDB.keys().catch(() => []));
+  const done = ph.filter(p => keys.has(ttsKey(p.text))).length;
+  el.innerHTML = `<p style="margin:8px 0">เสียงประกาศที่สร้างเก็บไว้ในเครื่อง (เสียง ${esc(S.ttsVoice)}): <b>${done} จาก ${ph.length}</b> ประโยค${ttsQ.list.length ? ` | กำลังสร้างต่ออีก ${ttsQ.list.length} ประโยค…` : ''}</p>` +
+    (S.ttsModelOk ? `<p class="muted" style="margin:0;font-size:14px">โมเดลเสียง: ${esc(S.ttsModelOk)}</p>` : '') +
+    (state.ttsErr ? `<p class="note err" style="font-size:14.5px">ล่าสุดสร้างเสียงไม่สำเร็จ: ${esc(state.ttsErr)}${/quota|429|exhaust|rate/i.test(state.ttsErr) ? ' (โควตาเต็มชั่วคราว ระบบจะลองต่อเองภายหลัง)' : ''}</p>` : '');
+}
+
 let AC = null;
 function unlockAudio() {
   try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); AC.resume(); } catch {}
@@ -1191,8 +1355,8 @@ function onPrediction(p) {
   const gap = chime();
   if (gap) {
     speech.busy = true; speech.busyUntil = now() + gap + 600;          // hold the voice channel during the chime
-    setTimeout(() => { speech.busy = false; if (!speak(text, { onstart: log })) log(); }, gap);
-  } else if (!speak(text, { onstart: log })) log();
+    setTimeout(() => { speech.busy = false; if (!say(text, { onstart: log, kind: 'nudge' })) log(); }, gap);
+  } else if (!say(text, { onstart: log, kind: 'nudge' })) log();
   setTimeout(log, 5000);
 }
 function nudgeText(item, bin, lang = L()) {
@@ -1327,7 +1491,7 @@ async function sendChat(q) {
   addMsg('bot', ans, offline ? t('offlineTag') : '');
   state.chat.push({ role: 'model', text: ans });
   logEvent({ type: 'chat', online: !offline, lang: isThai(q) ? 'th' : 'en' });
-  if (S.readAnswers) speak(ans, { lang: isThai(ans) ? 'th' : 'en', force: true });
+  if (S.readAnswers) say(ans, { lang: isThai(ans) ? 'th' : 'en', force: true, kind: 'chat' });
   state.busy = false; $('#sendBtn').disabled = false; state.lastChat = Date.now();
 }
 let rec = null;
@@ -1388,6 +1552,7 @@ function closeAdmin() {
   saveDatasetNow();
   state.view = 'kiosk'; $('#admin').hidden = true;
   renderBins(); applyI18n(); updateModeBadge();
+  setTimeout(() => warmPhrases(true), 1500);
 }
 function showTab(tab) {
   stopCapture(); state.testing = false;
@@ -1686,18 +1851,16 @@ function rangeField(key, label, min, max, step, unit, help) {
 function sw(key, label, help) { return `<label class="switch"><span>${label}${help ? `<small>${help}</small>` : ''}</span><input type="checkbox" data-set="${key}" ${S[key] ? 'checked' : ''}></label>`; }
 function tabSettings() {
   return `<h3>ตั้งค่าระบบ</h3>
-  <h4>การตรวจจับ</h4>
-  <div class="panel grid2">
-    <div>${rangeField('threshold', 'ความมั่นใจขั้นต่ำก่อนพูดแจ้งเตือน', 50, 95, 1, '%', 'ตามโครงงานใช้ 75%')}
-    ${rangeField('stableFrames', 'ต้องเห็นซ้ำติดกันกี่เฟรม', 1, 8, 1, '', 'กันการพูดผิดจากภาพที่กระพริบ')}
-    ${rangeField('cooldown', 'เว้นระยะก่อนพูดชิ้นเดิมซ้ำ', 2, 20, 1, ' วิ', 'กันเสียงพูดซ้ำซ้อน')}</div>
-    <div>${rangeField('k', 'ค่า K ของ KNN', 1, 15, 1, '', 'จำนวนภาพที่ใกล้ที่สุดที่ใช้โหวต')}
-    ${rangeField('minSim', 'ความคล้ายขั้นต่ำ (0 = ปิด)', 0, 95, 1, '%', 'ตัดวัตถุที่ไม่เคยสอน ดูค่าความคล้ายในหน้า สอน AI ประกอบ')}
-    ${rangeField('interval', 'รอบการประมวลผล', 60, 400, 10, ' ms', 'ค่าน้อยตอบไวขึ้นแต่เครื่องร้อนขึ้น')}</div>
+  <h4>เสียงพูด</h4>
+  <div class="panel">
+    ${sw('cloudVoice', 'ใช้เสียงผู้หญิงคุณภาพสูงจาก Gemini (แนะนำ)', 'เสียงเดียวกันทั้งภาษาไทยและอังกฤษ น่าฟังเท่ากันทุกเครื่อง ใช้ API Key เดียวกับ GuideBot ระบบสร้างเสียงประกาศเก็บไว้ในเครื่อง จึงเล่นได้ทันทีแม้ไม่มีเน็ต')}
+    <div class="field" style="margin-top:12px"><span class="lbl">เลือกเสียงผู้หญิง (แตะเพื่อฟังตัวอย่าง)</span>
+      <div class="vgrid">${GEMINI_VOICES.map(([n, d]) => `<button type="button" class="vchip" data-act="gvoice" data-v="${n}" aria-pressed="${n === S.ttsVoice}"><b>${n}</b><span>${d}</span></button>`).join('')}</div></div>
+    <div id="ttsStatus"></div>
+    <div class="inline" style="margin-top:10px"><button type="button" class="btn primary" data-act="ttsbuild">สร้างเสียงประกาศทั้งหมดตอนนี้</button><button type="button" class="btn danger" data-act="ttsclear">ล้างเสียงที่สร้างไว้</button></div>
   </div>
-  <div class="panel">${sw('zeroShot', 'ใช้โหมดพื้นฐานเมื่อยังไม่ได้สอน', 'ใช้ความรู้ทั่วไปของ MobileNet (ImageNet) ทายขยะทั่วไปบางชนิด ความแม่นยำต่ำกว่าการสอนจริง')}
-    ${rangeField('zsThreshold', 'ความมั่นใจขั้นต่ำของโหมดพื้นฐาน', 20, 90, 1, '%', '')}</div>
-  <h4>เสียง</h4>
+  <h4>เสียงสำรองของเครื่อง</h4>
+  <p class="lead" style="margin-bottom:10px">ใช้เมื่อไม่ได้เปิดเสียง Gemini หรือไม่มีเน็ตและประโยคนั้นยังไม่ได้สร้างไว้ ระบบเลือกเสียงผู้หญิงที่ชัดที่สุดของเครื่องให้อัตโนมัติ</p>
   <div class="panel grid2">
     <div><div class="field"><label for="voiceTh">เสียงภาษาไทย</label><select id="voiceTh" data-set="voiceTh"></select></div>
     <div class="field"><label for="voiceEn">เสียงภาษาอังกฤษ</label><select id="voiceEn" data-set="voiceEn"></select></div>
@@ -1710,6 +1873,17 @@ function tabSettings() {
     <div class="inline"><button type="button" class="btn" data-act="testvoice">ทดสอบเสียงไทย</button><button type="button" class="btn" data-act="testvoiceen">ทดสอบเสียงอังกฤษ</button></div>
     <div id="voiceNote"></div></div>
   </div>
+  <h4>การตรวจจับ</h4>
+  <div class="panel grid2">
+    <div>${rangeField('threshold', 'ความมั่นใจขั้นต่ำก่อนพูดแจ้งเตือน', 50, 95, 1, '%', 'ตามโครงงานใช้ 75%')}
+    ${rangeField('stableFrames', 'ต้องเห็นซ้ำติดกันกี่เฟรม', 1, 8, 1, '', 'กันการพูดผิดจากภาพที่กระพริบ')}
+    ${rangeField('cooldown', 'เว้นระยะก่อนพูดชิ้นเดิมซ้ำ', 2, 20, 1, ' วิ', 'กันเสียงพูดซ้ำซ้อน')}</div>
+    <div>${rangeField('k', 'ค่า K ของ KNN', 1, 15, 1, '', 'จำนวนภาพที่ใกล้ที่สุดที่ใช้โหวต')}
+    ${rangeField('minSim', 'ความคล้ายขั้นต่ำ (0 = ปิด)', 0, 95, 1, '%', 'ตัดวัตถุที่ไม่เคยสอน ดูค่าความคล้ายในหน้า สอน AI ประกอบ')}
+    ${rangeField('interval', 'รอบการประมวลผล', 60, 400, 10, ' ms', 'ค่าน้อยตอบไวขึ้นแต่เครื่องร้อนขึ้น')}</div>
+  </div>
+  <div class="panel">${sw('zeroShot', 'ใช้โหมดพื้นฐานเมื่อยังไม่ได้สอน', 'ใช้ความรู้ทั่วไปของ MobileNet (ImageNet) ทายขยะทั่วไปบางชนิด ความแม่นยำต่ำกว่าการสอนจริง')}
+    ${rangeField('zsThreshold', 'ความมั่นใจขั้นต่ำของโหมดพื้นฐาน', 20, 90, 1, '%', '')}</div>
   <h4>กล้องและโมเดล</h4>
   <div class="panel grid2">
     <div><div class="field"><label for="camSel">กล้อง</label><select id="camSel"><option value="">อัตโนมัติ (กล้องหน้า)</option></select></div>
@@ -1769,7 +1943,7 @@ function fillVoiceSelects() {
   vn.innerHTML = `<p class="muted" style="font-size:14.5px;margin:10px 0 0">กำลังใช้: <b>${th ? esc(th.name) : 'ค่าเริ่มต้นของเครื่อง'}</b></p>` + (msg ? `<p class="note" style="font-size:14.5px">${esc(msg)}</p>` : '');
 }
 async function fillSettingsAsync() {
-  loadVoices(); fillVoiceSelects();
+  loadVoices(); fillVoiceSelects(); updateTTSStatus();
   try {
     const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
     const sel = $('#camSel'); if (sel) sel.innerHTML = `<option value="">อัตโนมัติ (กล้องหน้า)</option>` + devs.map((d, i) => `<option value="${esc(d.deviceId)}" ${d.deviceId === S.cameraId ? 'selected' : ''}>${esc(d.label || 'กล้อง ' + (i + 1))}</option>`).join('');
@@ -1827,15 +2001,29 @@ function bindAdmin() {
       else if (act === 'evcsv2') { const ev = await DB.all('events'); download('ecosort-usage-log.csv', csv([['time', 'type', 'item', 'item_name', 'bin', 'confidence', 'latency_ms', 'mode', 'online', 'lang'], ...ev.map(e => [dstr(e.t), e.type, e.item || '', itemById(e.item)?.th || '', e.bin || '', e.conf ?? '', e.ms ?? '', e.mode || '', e.online ?? '', e.lang || ''])]), 'text/csv'); }
       else if (act === 'svcsv') { const sv = await DB.all('survey'); download('ecosort-survey.csv', csv([['time', 'respondent', 'ease_of_use', 'usefulness', 'intention', 'lang'], ...sv.map(r => [dstr(r.t), r.who, r.ease, r.useful, r.intent, r.lang])]), 'text/csv'); }
       else if (act === 'clearstats') { if (confirm('ล้างสถิติและแบบประเมินทั้งหมด? (ควรส่งออก CSV ก่อน)')) { await DB.clear('events'); await DB.clear('survey'); loadStats(); } }
-      else if (act === 'testvoice') { speak('สวัสดีค่ะ ยินดีต้อนรับสู่มาลัยฟาร์ม ขวดน้ำพลาสติก ทิ้งลงถังสีเหลือง ขยะรีไซเคิลค่ะ เทน้ำออกให้หมดก่อนนะคะ ขอบคุณที่ช่วยกันแยกขยะค่ะ', { lang: 'th', force: true }); }
-      else if (act === 'testvoiceen') { speak('Hello and welcome to Malai Farm. Plastic bottle: please use the yellow bin for recyclables. Thank you for sorting your waste.', { lang: 'en', force: true }); }
+      else if (act === 'testvoice') { say('สวัสดีค่ะ ยินดีต้อนรับสู่มาลัยฟาร์ม ขวดน้ำพลาสติก ทิ้งลงถังสีเหลือง ขยะรีไซเคิลค่ะ เทน้ำออกให้หมดก่อนนะคะ ขอบคุณที่ช่วยกันแยกขยะค่ะ', { lang: 'th', force: true, kind: 'test' }); }
+      else if (act === 'testvoiceen') { say('Hello and welcome to Malai Farm. Plastic bottle: please use the yellow bin for recyclables. Thank you for sorting your waste.', { lang: 'en', force: true, kind: 'test' }); }
+      else if (act === 'gvoice') {
+        S.ttsVoice = b.dataset.v; saveSettings();
+        $$('.vchip').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+        ttsQ.list = []; ttsQ.set.clear(); updateTTSStatus();
+        if (!S.apiKey) { toast('ใส่ Gemini API Key ในแท็บ GuideBot ก่อนจึงจะฟังเสียงนี้ได้', 4500); return; }
+        if (!S.cloudVoice) { S.cloudVoice = true; saveSettings(); const c = $('[data-set="cloudVoice"]'); if (c) c.checked = true; }
+        say('สวัสดีค่ะ ยินดีต้อนรับสู่มาลัยฟาร์มค่ะ Hello and welcome to Malai Farm.', { lang: 'th', force: true, kind: 'test' });
+      }
+      else if (act === 'ttsbuild') {
+        if (!S.apiKey) { toast('ใส่ Gemini API Key ในแท็บ GuideBot ก่อน', 4500); return; }
+        if (!S.cloudVoice) { S.cloudVoice = true; saveSettings(); const c = $('[data-set="cloudVoice"]'); if (c) c.checked = true; }
+        ttsQ.fails = 0; ttsQ.pauseUntil = 0; warmPhrases(false); updateTTSStatus(); toast('เริ่มสร้างเสียงประกาศ ใช้เวลาประมาณ 1-2 วินาทีต่อประโยค');
+      }
+      else if (act === 'ttsclear') { if (confirm('ล้างเสียงประกาศที่สร้างเก็บไว้ทั้งหมด?')) { ttsQ.list = []; ttsQ.set.clear(); ttsMem.clear(); await ttsDB.clear(); updateTTSStatus(); } }
       else if (act === 'restartcam') { await startCamera().then(() => toast('เริ่มกล้องใหม่แล้ว')).catch(err => toast(camErrorText(err), 5000)); }
       else if (act === 'reloadmodel') { await reloadModel(); }
       else if (act === 'fullscreen') { goFullscreen(); }
       else if (act === 'savepin') { const p = $('#newPin').value.trim(); if (!/^\d{4,6}$/.test(p)) { toast('PIN ต้องเป็นตัวเลข 4-6 หลัก'); return; } S.pin = p; saveSettings(); $('#newPin').value = ''; toast('บันทึก PIN ใหม่แล้ว'); }
       else if (act === 'exportset') { const o = clone(S); delete o.apiKey; delete o.pin; download('ecosort-settings.json', JSON.stringify({ format: 'ecosort-settings', version: 1, settings: o }, null, 2)); }
       else if (act === 'importset') { pickFile(obj => { if (obj.format !== 'ecosort-settings') throw new Error('ไม่ใช่ไฟล์การตั้งค่า EcoSort'); const keep = { apiKey: S.apiKey, pin: S.pin }; S = Object.assign(clone(DEFAULTS), obj.settings, keep); saveSettings(); renderBins(); applyI18n(); showTab('settings'); toast('นำเข้าการตั้งค่าแล้ว'); }); }
-      else if (act === 'factory') { if (confirm('ล้างข้อมูลทั้งหมดในเครื่องนี้ รวมถึงการสอน AI สถิติ และการตั้งค่า?') && confirm('ยืนยันอีกครั้ง: ข้อมูลจะหายถาวร')) { localStorage.removeItem(SKEY); await Promise.all([DB.del('dataset'), DB.clear('events'), DB.clear('survey'), DB.del('evalRecs')]).catch(() => {}); location.reload(); } }
+      else if (act === 'factory') { if (confirm('ล้างข้อมูลทั้งหมดในเครื่องนี้ รวมถึงการสอน AI สถิติ และการตั้งค่า?') && confirm('ยืนยันอีกครั้ง: ข้อมูลจะหายถาวร')) { localStorage.removeItem(SKEY); await Promise.all([DB.del('dataset'), DB.clear('events'), DB.clear('survey'), DB.del('evalRecs'), DB.clear('tts')]).catch(() => {}); location.reload(); } }
     } catch (err) { console.error(err); toast('ผิดพลาด: ' + (err.message || err), 5000); }
   });
 
@@ -1848,6 +2036,7 @@ function bindAdmin() {
       const lbl = $(`[data-val="${k}"]`); if (lbl) lbl.textContent = v + (el.dataset.unit || '');
       if (k === 'mirror') applyMirror();
       if (k === 'zeroShot') updateModeBadge();
+      if (k === 'cloudVoice') { updateTTSStatus(); if (v) warmPhrases(true); }
     }
     if (el.dataset.bf) {
       const i = +el.closest('.bin-row').dataset.i; const b = S.bins[i]; const path = el.dataset.bf.split('.');
@@ -1972,6 +2161,7 @@ async function startStation() {
   $('#start').hidden = true;
   updateModeBadge();
   if (!state.loopOn) { state.loopOn = true; loop(); }
+  setTimeout(() => warmPhrases(true), 6000);
 }
 async function boot() {
   applyI18n(); setMuteIcon(); renderBins(); renderChips(); resetChat(); bindUI();
