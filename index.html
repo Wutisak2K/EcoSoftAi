@@ -303,6 +303,12 @@ svg.i{width:1.2em;height:1.2em;flex:none;fill:none;stroke:currentColor;stroke-wi
 .vchip span{font-size:13.5px;color:var(--muted)}
 .vchip[aria-pressed=true]{border-color:var(--meadow);background:#E3F1E8;box-shadow:0 0 0 3px #CFE6D7}
 
+/* dataset import */
+.cm.imp td,.cm.imp th{text-align:left;vertical-align:middle}
+.cm.imp select,.cm.imp input{min-height:38px;padding:4px 8px;border-radius:8px;border:1.5px solid var(--line);font-size:14.5px;background:#fff;max-width:220px}
+.impnew{display:flex;gap:6px;flex-wrap:wrap}
+.impnew input{width:150px}
+
 </style>
 </head>
 <body>
@@ -471,7 +477,8 @@ const LIBS = {
   tf: ['https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js',
        'https://unpkg.com/@tensorflow/tfjs@4.22.0/dist/tf.min.js'],
   knn: ['https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier@1.2.6/dist/knn-classifier.min.js',
-        'https://unpkg.com/@tensorflow-models/knn-classifier@1.2.6/dist/knn-classifier.min.js']
+        'https://unpkg.com/@tensorflow-models/knn-classifier@1.2.6/dist/knn-classifier.min.js'],
+  fflate: ['https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js', 'https://unpkg.com/fflate@0.8.2/umd/index.js']
 };
 // MobileNet sources (Google-hosted). The trained KNN data is tied to the model it was taught with.
 const MODEL_SOURCES = {
@@ -1267,6 +1274,275 @@ async function tryDefaultModelFile() {
   } catch { return false; }
 }
 
+
+/* ---------------- import: image datasets (ZIP / folder / photos) + waste list (CSV) ---------------- */
+const IMG_RE = /\.(jpe?g|png|webp|gif|bmp|heic|heif|avif)$/i;
+const isJunk = p => /(^|\/)(__MACOSX|\.[^/]*)(\/|$)/.test(p) || /thumbs\.db$|desktop\.ini$/i.test(p);
+const normName = x => String(x || '').toLowerCase().replace(/^\d+[\s._-]+/, '').replace(/[_\-.]+/g, ' ').replace(/\s+/g, ' ').trim();
+function classFromPath(path) { const parts = String(path || '').split('/').filter(Boolean); parts.pop(); return parts.length ? parts[parts.length - 1] : ''; }
+const DATASET_ALIASES = [
+  [BG, ['background', 'bg', 'empty', 'none', 'nothing', 'no item', 'พื้นหลัง', 'ไม่มีขยะ']],
+  ['battery', ['battery', 'batteries']],
+  ['food', ['biological', 'organic', 'organics', 'food', 'food organics', 'food waste', 'vegetation', 'compost', 'biodegradable', 'bio']],
+  ['paper', ['cardboard', 'paper', 'carton', 'cardboard box', 'newspaper']],
+  ['glass_bottle', ['glass', 'brown glass', 'green glass', 'white glass', 'glass bottle', 'glass bottles']],
+  ['can', ['metal', 'can', 'cans', 'aluminium cans', 'aluminum cans', 'aluminium', 'aluminum', 'metal can', 'tin']],
+  ['pet_bottle', ['plastic', 'pet', 'pet bottle', 'pet bottles', 'plastic bottle', 'plastic bottles', 'bottle', 'bottles', 'hdpe milk bottles']],
+  ['plastic_cup', ['cup', 'cups', 'plastic cup', 'disposable cup']],
+  ['foam', ['styrofoam', 'foam', 'polystyrene']],
+  ['snack_bag', ['plastic bag', 'plastic bags', 'bag', 'wrapper', 'wrappers', 'snack', 'chips bag']],
+  ['straw', ['straw', 'straws', 'cutlery', 'plastic cutlery']],
+  ['tissue', ['tissue', 'tissues', 'napkin', 'paper towel']],
+  ['mask', ['mask', 'masks', 'face mask']]
+];
+const NEW_SUGGEST = [
+  [['trash', 'miscellaneous trash', 'general', 'general waste', 'residual', 'other', 'others', 'non recyclable'], { th: 'ขยะทั่วไปอื่น ๆ', en: 'Other general waste', bin: 'blue' }],
+  [['clothes', 'clothing', 'textile', 'textiles', 'textile trash'], { th: 'เสื้อผ้า/สิ่งทอ', en: 'Clothes and textiles', bin: 'blue' }],
+  [['shoes', 'shoe'], { th: 'รองเท้า', en: 'Shoes', bin: 'blue' }],
+  [['e waste', 'ewaste', 'electronics', 'electronic'], { th: 'ขยะอิเล็กทรอนิกส์', en: 'E-waste', bin: 'orange' }],
+  [['light bulb', 'light bulbs', 'bulb', 'lamp'], { th: 'หลอดไฟ', en: 'Light bulb', bin: 'orange' }],
+  [['medicine', 'pills', 'drugs'], { th: 'ยาหมดอายุ', en: 'Expired medicine', bin: 'orange' }],
+  [['spray', 'aerosol', 'spray can'], { th: 'กระป๋องสเปรย์', en: 'Spray can', bin: 'orange' }],
+  [['diaper', 'diapers'], { th: 'ผ้าอ้อมสำเร็จรูป', en: 'Diaper', bin: 'red' }]
+];
+function suggestMap(folder) {
+  const n = normName(folder);
+  if (!n) return { mode: 'item', item: selItem };
+  for (const it of S.items) if ([it.id, it.th, it.en, ...(it.kw || [])].map(normName).includes(n)) return { mode: 'item', item: it.id };
+  for (const [id, al] of DATASET_ALIASES) if (al.includes(n) && itemById(id)) return { mode: 'item', item: id };
+  for (const [al, sug] of NEW_SUGGEST) if (al.includes(n)) {
+    const ex = S.items.find(i => normName(i.th) === normName(sug.th) || normName(i.en) === normName(sug.en));
+    return ex ? { mode: 'item', item: ex.id } : { mode: 'new', th: sug.th, en: sug.en, bin: sug.bin };
+  }
+  return { mode: 'new', th: folder, en: folder, bin: 'blue' };
+}
+
+// --- minimal ZIP reader: reads the central directory, then only the entries it needs (low memory, ZIP64 aware)
+async function readSlice(file, a, b) { return new Uint8Array(await file.slice(a, b).arrayBuffer()); }
+const TD_UTF8 = new TextDecoder('utf-8', { fatal: true });
+let TD_TH; try { TD_TH = new TextDecoder('windows-874'); } catch { TD_TH = new TextDecoder('utf-8'); }
+function zipName(bytes, utf8) { if (utf8) return new TextDecoder().decode(bytes); try { return TD_UTF8.decode(bytes); } catch { return TD_TH.decode(bytes); } }
+async function zipIndex(file) {
+  const tailLen = Math.min(file.size, 22 + 65535 + 20);
+  const tail = await readSlice(file, file.size - tailLen, file.size), tv = new DataView(tail.buffer);
+  let e = -1; for (let i = tail.length - 22; i >= 0; i--) if (tv.getUint32(i, true) === 0x06054b50) { e = i; break; }
+  if (e < 0) throw new Error('ไฟล์นี้ไม่ใช่ ZIP หรือไฟล์เสียหาย');
+  let size = tv.getUint32(e + 12, true), off = tv.getUint32(e + 16, true);
+  if ((size === 0xFFFFFFFF || off === 0xFFFFFFFF || tv.getUint16(e + 10, true) === 0xFFFF) && e >= 20 && tv.getUint32(e - 20, true) === 0x07064b50) {
+    const z64 = Number(tv.getBigUint64(e - 12, true));
+    const r = await readSlice(file, z64, z64 + 56), rv = new DataView(r.buffer);
+    if (rv.getUint32(0, true) === 0x06064b50) { size = Number(rv.getBigUint64(40, true)); off = Number(rv.getBigUint64(48, true)); }
+  }
+  const cd = await readSlice(file, off, off + size), v = new DataView(cd.buffer);
+  const out = []; let p = 0;
+  while (p + 46 <= cd.length && v.getUint32(p, true) === 0x02014b50) {
+    const flags = v.getUint16(p + 8, true), method = v.getUint16(p + 10, true);
+    let csize = v.getUint32(p + 20, true), usize = v.getUint32(p + 24, true), loff = v.getUint32(p + 42, true);
+    const nlen = v.getUint16(p + 28, true), xlen = v.getUint16(p + 30, true), clen = v.getUint16(p + 32, true);
+    const name = zipName(cd.subarray(p + 46, p + 46 + nlen), flags & 0x800);
+    for (let x = p + 46 + nlen, end = x + xlen; x + 4 <= end;) {
+      const id = v.getUint16(x, true), sz = v.getUint16(x + 2, true);
+      if (id === 1) { let q = x + 4; if (usize === 0xFFFFFFFF) { usize = Number(v.getBigUint64(q, true)); q += 8; } if (csize === 0xFFFFFFFF) { csize = Number(v.getBigUint64(q, true)); q += 8; } if (loff === 0xFFFFFFFF) loff = Number(v.getBigUint64(q, true)); }
+      x += 4 + sz;
+    }
+    if (!name.endsWith('/')) out.push({ name, method, csize, loff, enc: !!(flags & 1) });
+    p += 46 + nlen + xlen + clen;
+  }
+  return out;
+}
+async function inflateRaw(u8) {
+  if (typeof DecompressionStream !== 'undefined') {
+    try { return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer()); } catch {}
+  }
+  if (!window.fflate) await loadScript(LIBS.fflate);
+  return fflate.inflateSync(u8);
+}
+async function zipEntryData(file, e) {
+  const h = await readSlice(file, e.loff, e.loff + 30), hv = new DataView(h.buffer);
+  if (hv.getUint32(0, true) !== 0x04034b50) throw new Error('ZIP เสียหาย');
+  const start = e.loff + 30 + hv.getUint16(26, true) + hv.getUint16(28, true);
+  const comp = await readSlice(file, start, start + e.csize);
+  if (e.method === 0) return comp;
+  if (e.method === 8) return inflateRaw(comp);
+  throw new Error('รูปแบบการบีบอัดนี้ไม่รองรับ');
+}
+const mimeOf = n => /\.png$/i.test(n) ? 'image/png' : /\.webp$/i.test(n) ? 'image/webp' : /\.gif$/i.test(n) ? 'image/gif' : /\.bmp$/i.test(n) ? 'image/bmp' : /\.hei[cf]$/i.test(n) ? 'image/heic' : /\.avif$/i.test(n) ? 'image/avif' : 'image/jpeg';
+
+// --- decode any picture into a 224x224 centre crop (same framing as the camera)
+const impCanvas = document.createElement('canvas'); impCanvas.width = impCanvas.height = 224;
+async function decodeImage(blob) {
+  try { return await createImageBitmap(blob); } catch {}
+  return new Promise((res, rej) => { const img = new Image(), url = URL.createObjectURL(blob); img.onload = () => { URL.revokeObjectURL(url); res(img); }; img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('เปิดภาพไม่ได้')); }; img.src = url; });
+}
+async function imageToCanvas(blob) {
+  const img = await decodeImage(blob);
+  const w = img.width || img.naturalWidth, h = img.height || img.naturalHeight, side = Math.min(w, h);
+  const g = impCanvas.getContext('2d'); g.drawImage(img, (w - side) / 2, (h - side) / 2, side, side, 0, 0, 224, 224);
+  if (img.close) img.close();
+  return impCanvas;
+}
+function canvasThumb(c) { const t = document.createElement('canvas'); t.width = t.height = 96; t.getContext('2d').drawImage(c, 0, 0, 96, 96); return t.toDataURL('image/jpeg', 0.7); }
+
+const imp = { groups: null, file: null, skipped: 0, cap: 80, running: false, cancel: false, result: '' };
+function setImportGroups(groups, file, skipped) {
+  for (const g of groups.values()) g.map = g.forceItem ? { mode: 'item', item: g.forceItem } : suggestMap(g.name);
+  Object.assign(imp, { groups, file, skipped, result: '' });
+  const box = $('#impMap'); if (box) box.innerHTML = impMapHTML();
+}
+async function scanZipFile(file) {
+  const box = $('#impMap'); if (box) box.innerHTML = '<p class="muted">กำลังอ่านรายชื่อไฟล์ใน ZIP…</p>';
+  const groups = new Map(); let skipped = 0;
+  for (const e of await zipIndex(file)) {
+    if (isJunk(e.name)) continue;
+    if (!IMG_RE.test(e.name) || e.enc) { skipped++; continue; }
+    const g = classFromPath(e.name);
+    if (!groups.has(g)) groups.set(g, { name: g, items: [] });
+    groups.get(g).items.push({ zip: e, name: e.name });
+  }
+  if (!groups.size) throw new Error('ไม่พบไฟล์ภาพใน ZIP นี้');
+  setImportGroups(groups, file, skipped);
+}
+function scanFileList(files, forceItem) {
+  const groups = new Map(); let skipped = 0;
+  for (const f of files) {
+    const path = f.webkitRelativePath || f.name;
+    if (isJunk(path)) continue;
+    if (!(IMG_RE.test(f.name) || /^image\//.test(f.type))) { skipped++; continue; }
+    const g = forceItem ? '(รูปที่เลือก)' : classFromPath(path);
+    if (!groups.has(g)) groups.set(g, { name: g, items: [], forceItem });
+    groups.get(g).items.push({ file: f, name: f.name });
+  }
+  if (!groups.size) { toast('ไม่พบไฟล์ภาพ'); return; }
+  setImportGroups(groups, null, skipped);
+}
+function impMapHTML() {
+  if (imp.result && !imp.groups) return imp.result;
+  if (!imp.groups) return '';
+  const gs = [...imp.groups.values()], total = gs.reduce((a, g) => a + g.items.length, 0);
+  const binSel = (sel) => S.bins.map(b => `<option value="${esc(b.id)}" ${b.id === sel ? 'selected' : ''}>${esc(b.name.th)} (${esc(b.type.th)})</option>`).join('');
+  const itemOpts = cur => S.items.map(it => `<option value="item:${esc(it.id)}" ${cur === 'item:' + it.id ? 'selected' : ''}>${esc(it.th)}</option>`).join('');
+  return `<div class="note ok">พบภาพ ${total} ภาพ ใน ${gs.length} โฟลเดอร์${imp.skipped ? ` (ข้ามไฟล์ที่ไม่ใช่ภาพ ${imp.skipped} ไฟล์)` : ''} ตรวจการจับคู่ด้านล่าง แล้วกดเริ่มนำเข้า</div>
+  <div class="field"><label for="impCap">จำนวนภาพสูงสุดต่อประเภท: <b id="impCapV">${imp.cap}</b> ภาพ</label>
+    <input type="range" id="impCap" min="10" max="300" step="10" value="${imp.cap}"><small>ระบบเลือกภาพกระจายทั่วทั้งโฟลเดอร์ ภาพมากขึ้นจะแม่นขึ้นแต่ใช้เวลานำเข้านานขึ้น</small></div>
+  <div class="table-wrap"><table class="cm imp"><tr><th class="rowh">โฟลเดอร์ในไฟล์</th><th>ภาพ</th><th>นำเข้าเป็น</th><th>ชื่อรายการใหม่ และถัง</th></tr>
+  ${gs.map((g, i) => {
+    const m = g.map, cur = m.mode === 'item' ? 'item:' + m.item : m.mode;
+    return `<tr data-g="${i}"><th class="rowh">${esc(g.name || '(ไม่มีโฟลเดอร์)')}</th><td>${g.items.length}</td>
+      <td><select data-imp="mode"><option value="skip" ${cur === 'skip' ? 'selected' : ''}>ข้าม</option><option value="new" ${cur === 'new' ? 'selected' : ''}>+ เพิ่มเป็นรายการใหม่</option><optgroup label="รายการที่มีอยู่">${itemOpts(cur)}</optgroup></select></td>
+      <td>${m.mode === 'new' ? `<div class="impnew"><input type="text" data-imp="th" value="${esc(m.th)}" placeholder="ชื่อไทย"><input type="text" data-imp="en" value="${esc(m.en)}" placeholder="ชื่ออังกฤษ"><select data-imp="bin">${binSel(m.bin)}</select></div>` : (m.mode === 'item' && itemById(m.item) ? `<span class="muted">${itemById(m.item).bin ? esc(binById(itemById(m.item).bin)?.name.th || '') : 'ไม่พูดแจ้งเตือน'}</span>` : '')}</td></tr>`;
+  }).join('')}</table></div>
+  <div class="inline" style="margin-top:12px"><button type="button" class="btn primary" data-act="impgo" ${AI.ready && AI.dataOk ? '' : 'disabled'}>เริ่มนำเข้า</button><button type="button" class="btn" data-act="impcancel">ยกเลิก</button></div>
+  <div id="impProg"></div>`;
+}
+async function runImport() {
+  if (imp.running || !imp.groups) return;
+  if (!AI.ready || !AI.dataOk) { toast('AI ยังไม่พร้อม'); return; }
+  const gs = [...imp.groups.values()].filter(g => g.map.mode !== 'skip');
+  let created = 0;
+  for (const g of gs) {
+    if (g.map.mode === 'new') {
+      const th = String(g.map.th || g.name).trim(); if (!th) { g.target = null; continue; }
+      let ex = S.items.find(i => normName(i.th) === normName(th));
+      if (!ex) { ex = { id: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), th, en: String(g.map.en || th).trim(), bin: g.map.bin || 'blue', tip: { th: '', en: '' }, kw: [normName(g.name)].filter(Boolean) }; S.items.push(ex); created++; }
+      g.target = ex.id;
+    } else g.target = g.map.item;
+  }
+  saveSettings();
+  const jobs = [];
+  for (const g of gs) { if (!g.target || !itemById(g.target)) continue; const n = g.items.length, k = Math.min(imp.cap, n); for (let i = 0; i < k; i++) jobs.push({ g, it: g.items[Math.floor(i * n / k)] }); }
+  if (!jobs.length) { toast('ไม่มีภาพที่ต้องนำเข้า'); return; }
+  Object.assign(imp, { running: true, cancel: false }); state.importing = true;
+  const prog = () => $('#impProg');
+  let ok = 0, fail = 0; const t0 = now(), perItem = {};
+  for (let i = 0; i < jobs.length && !imp.cancel; i++) {
+    const { g, it } = jobs[i];
+    try {
+      const blob = it.file || new Blob([await zipEntryData(imp.file, it.zip)], { type: mimeOf(it.name) });
+      const c = await imageToCanvas(blob);
+      const out = infer(c);
+      try { AI.knn.addExample(out[0], g.target); } finally { out.forEach(x => x.dispose()); }
+      if (!state.thumbs[g.target]) state.thumbs[g.target] = canvasThumb(c);
+      ok++; perItem[g.target] = (perItem[g.target] || 0) + 1;
+    } catch (e) { fail++; console.warn('import', it.name, e.message); }
+    if (i % 4 === 0 || i === jobs.length - 1) {
+      const el = prog(), sec = (now() - t0) / 1000;
+      if (el) el.innerHTML = `<p style="margin:10px 0 6px">กำลังนำเข้า ${i + 1} / ${jobs.length} ภาพ${sec > 2 ? ` (เหลือประมาณ ${Math.ceil((jobs.length - i - 1) * sec / (i + 1))} วินาที)` : ''}</p><div class="bar"><span class="track" style="grid-column:1/-1"><span class="fill" style="width:${((i + 1) / jobs.length * 100).toFixed(1)}%"></span></span></div><button type="button" class="btn small" data-act="impstop" style="margin-top:8px">หยุด</button>`;
+      await sleep(0);
+    }
+  }
+  state.importing = false; imp.running = false;
+  await saveDatasetNow();
+  const lines = Object.entries(perItem).map(([id, n]) => `${itemById(id)?.th || id} +${n}`).join(', ');
+  imp.result = `<div class="note ok">นำเข้าแล้ว ${ok} ภาพ${fail ? ` (เปิดไม่ได้ ${fail} ภาพ)` : ''}${created ? ` และเพิ่มรายการใหม่ ${created} รายการ` : ''}${imp.cancel ? ' (หยุดก่อนครบ)' : ''}: ${esc(lines)}<br>อย่าลืมสอน "พื้นหลัง" และถ่ายขยะจริงเพิ่มด้วยกล้องที่จุดติดตั้ง แล้วลองแท็บทดสอบความแม่นยำ</div>`;
+  imp.groups = null; imp.file = null;
+  const box = $('#impMap'); if (box) box.innerHTML = imp.result;
+  refreshTrainUI(); updateModeBadge(); warmPhrases(true);
+}
+function pickLocalFiles({ accept = '', multiple = false, dir = false }, cb) {
+  const i = document.createElement('input'); i.type = 'file'; i.hidden = true;
+  if (accept) i.accept = accept; i.multiple = multiple; if (dir) i.webkitdirectory = true;
+  i.onchange = async () => { const files = [...i.files]; i.remove(); if (files.length) { try { await cb(files); } catch (e) { console.error(e); toast('นำเข้าไม่สำเร็จ: ' + (e.message || e), 5000); } } };
+  document.body.append(i); i.click();
+}
+const canPickFolder = () => 'webkitdirectory' in document.createElement('input') && !/iPad|iPhone/.test(navigator.userAgent) && !(/Macintosh/.test(navigator.userAgent) && 'ontouchend' in document);
+
+// --- waste list CSV
+function parseCSV(text) {
+  text = String(text).replace(/^﻿/, '');
+  const first = text.split(/\r?\n/, 1)[0] || '';
+  const d = [',', ';', '\t'].sort((a, b) => first.split(b).length - first.split(a).length)[0];
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === d) { row.push(f); f = ''; }
+    else if (c === '\n') { row.push(f); rows.push(row); row = []; f = ''; }
+    else if (c !== '\r') f += c;
+  }
+  if (f !== '' || row.length) { row.push(f); rows.push(row); }
+  return rows.filter(r => r.some(x => String(x).trim() !== ''));
+}
+const CSV_COLS = { id: ['id', 'รหัส'], th: ['name_th', 'ชื่อไทย', 'ชื่อ', 'ชื่อขยะ', 'thai', 'name th'], en: ['name_en', 'ชื่ออังกฤษ', 'english', 'name en', 'name'],
+  bin: ['bin', 'ถัง', 'สีถัง', 'ประเภทถัง', 'ประเภท', 'category', 'type'], tipTh: ['tip_th', 'คำแนะนำ', 'คำแนะนำไทย', 'tip'], tipEn: ['tip_en', 'คำแนะนำอังกฤษ'], kw: ['keywords', 'คำค้น', 'คำค้นหา', 'kw'] };
+const BIN_WORDS = { green: ['green', 'เขียว', 'อินทรีย์', 'organic', 'เปียก'], yellow: ['yellow', 'เหลือง', 'รีไซเคิล', 'recycl'], blue: ['blue', 'น้ำเงิน', 'ทั่วไป', 'general'], orange: ['orange', 'ส้ม', 'อันตราย', 'hazard'], red: ['red', 'แดง', 'ติดเชื้อ', 'infect', 'medical'] };
+function resolveBin(v) {
+  const x = String(v || '').toLowerCase().trim(); if (!x) return null;
+  for (const b of S.bins) if ([b.id, b.name.th, b.name.en, b.type.th, b.type.en].some(t => String(t).toLowerCase() === x)) return b.id;
+  for (const b of S.bins) if ((BIN_WORDS[b.id] || []).some(w => x.includes(w)) || x.includes(String(b.type.th).toLowerCase())) return b.id;
+  return null;
+}
+function importWasteCSV(text) {
+  const rows = parseCSV(text); if (rows.length < 2) throw new Error('ไฟล์ไม่มีข้อมูล');
+  const head = rows[0].map(h => String(h).toLowerCase().trim());
+  const col = {}; for (const [k, al] of Object.entries(CSV_COLS)) { const i = head.findIndex(h => al.includes(h)); if (i >= 0) col[k] = i; }
+  if (col.th == null) throw new Error('ไม่พบคอลัมน์ชื่อไทย (name_th)');
+  let added = 0, updated = 0, noBin = 0;
+  for (const r of rows.slice(1)) {
+    const g = k => col[k] == null ? '' : String(r[col[k]] ?? '').trim();
+    const th = g('th'); if (!th) continue;
+    const id = g('id'), en = g('en'), bin = resolveBin(g('bin'));
+    const kw = g('kw') ? g('kw').split(/[|;]/).map(x => x.trim()).filter(Boolean) : null;
+    let it = (id && itemById(id)) || S.items.find(i => normName(i.th) === normName(th) || (en && normName(i.en) === normName(en)));
+    if (it && it.id === BG) continue;
+    if (it) {
+      it.th = th; if (en) it.en = en; if (bin) it.bin = bin; else if (g('bin')) noBin++;
+      it.tip = it.tip || { th: '', en: '' }; if (g('tipTh')) it.tip.th = g('tipTh'); if (g('tipEn')) it.tip.en = g('tipEn'); if (kw) it.kw = kw;
+      updated++;
+    } else {
+      if (!bin) noBin++;
+      S.items.push({ id: (id && /^[\w-]+$/.test(id) ? id : 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)), th, en: en || th, bin: bin || 'blue', tip: { th: g('tipTh'), en: g('tipEn') }, kw: kw || [] });
+      added++;
+    }
+  }
+  saveSettings(); renderBins();
+  return { added, updated, noBin };
+}
+function exportWasteCSV() {
+  download('ecosort-waste-list.csv', csv([['id', 'name_th', 'name_en', 'bin', 'tip_th', 'tip_en', 'keywords'],
+    ...S.items.filter(i => i.id !== BG).map(i => [i.id, i.th, i.en, i.bin, i.tip?.th || '', i.tip?.en || '', (i.kw || []).join('|')])]), 'text/csv');
+}
+
 /* ---------------- camera ---------------- */
 async function startCamera() {
   const video = $('#video');
@@ -1310,7 +1586,7 @@ async function loop() {
   const t0 = now();
   try {
     const idleAdmin = state.view === 'admin' && !['train', 'eval'].includes(state.adminTab);
-    const talking = state.view === 'kiosk' && isSpeaking();
+    const talking = (state.view === 'kiosk' && isSpeaking()) || state.importing;
     if (!document.hidden && AI.ready && state.stream && !idleAdmin && !talking) {
       if (state.testing) await evalTick();
       else {
@@ -1455,7 +1731,7 @@ function offlineAnswer(q) {
   let best = null, bs = 0;
   for (const it of S.items) {
     if (it.id === BG || !binById(it.bin)?.on) continue;
-    for (const k of [it.th, it.en, ...(it.kw || [])]) { const kk = String(k || '').toLowerCase(); if (kk.length > 1 && s.includes(kk) && kk.length > bs) { best = it; bs = kk.length; } }
+    for (const k of [it.th, it.en, ...String(it.th || '').split('/'), ...String(it.en || '').split(/\s+or\s+/), ...(it.kw || [])]) { const kk = String(k || '').toLowerCase(); if (kk.length > 1 && s.includes(kk) && kk.length > bs) { best = it; bs = kk.length; } }
   }
   const asksBin = /ทิ้ง|ถัง|แยก|bin|throw|dispose|recycl|put/.test(s);
   let fb = null, fs = 0;
@@ -1630,6 +1906,22 @@ function tabTrain() {
         <button type="button" class="btn primary" data-act="additem">เพิ่มรายการ</button>
       </div>
     </div>
+  </div>
+  <h4>นำเข้าภาพสำหรับสอน AI</h4>
+  <div class="panel">
+    <p class="muted" style="margin:0 0 12px">ใช้ไฟล์ ZIP ที่แยกโฟลเดอร์ตามชนิดขยะ เช่น <span class="mono">plastic/</span> <span class="mono">glass/</span> (ชุดข้อมูลจาก Kaggle หรือ TrashNet ใช้ได้ทันที) ระบบจับคู่ชื่อโฟลเดอร์กับรายการขยะให้อัตโนมัติ ชนิดที่ยังไม่มีจะเพิ่มเป็นรายการใหม่ หรือเลือกรูปจากคลังภาพเพื่อเพิ่มเข้ารายการที่เลือกอยู่</p>
+    <div class="inline">
+      <button type="button" class="btn primary" data-act="impzip" ${AI.ready ? '' : 'disabled'}><svg class="i"><use href="#i-up"/></svg>เลือกไฟล์ ZIP</button>
+      ${canPickFolder() ? `<button type="button" class="btn" data-act="impdir" ${AI.ready ? '' : 'disabled'}>เลือกโฟลเดอร์</button>` : ''}
+      <button type="button" class="btn" data-act="impimg" ${AI.ready ? '' : 'disabled'}>เลือกรูปหลายรูป (เข้ารายการที่เลือกอยู่)</button>
+    </div>
+    <div id="impMap">${impMapHTML()}</div>
+  </div>
+  <h4>รายการขยะ (ไฟล์ CSV)</h4>
+  <div class="panel">
+    <p class="muted" style="margin:0 0 12px">เพิ่มหรือแก้ไขรายชื่อขยะ ถังที่ต้องทิ้ง คำแนะนำ และคำค้นหาทีละหลายรายการ รายการที่ยังไม่มีจะถูกเพิ่มให้ รายการที่มีอยู่จะถูกอัปเดต ถ้าใช้ Excel ให้บันทึกเป็น CSV UTF-8 คอลัมน์: id, name_th, name_en, bin, tip_th, tip_en, keywords (คั่นคำค้นด้วย |)</p>
+    <div class="inline"><button type="button" class="btn" data-act="csvexport"><svg class="i"><use href="#i-down"/></svg>ดาวน์โหลดรายการปัจจุบัน (CSV)</button><button type="button" class="btn primary" data-act="csvimport"><svg class="i"><use href="#i-up"/></svg>นำเข้าไฟล์ CSV</button></div>
+    <div id="csvOut"></div>
   </div>
   <h4>ขั้นตอนเตรียมสถานี</h4>
   <div class="panel">${trainChecklist()}</div>
@@ -1985,6 +2277,20 @@ function bindAdmin() {
         const it = { id: 'c' + Date.now().toString(36), th, en: $('#niEn').value.trim() || th, bin: $('#niBin').value, tip: { th: tip, en: '' }, kw: $('#niKw').value.split(',').map(s => s.trim()).filter(Boolean) };
         S.items.push(it); selItem = it.id; saveSettings(); refreshTrainUI(); ['#niTh', '#niEn', '#niTip', '#niKw'].forEach(s => $(s).value = ''); toast('เพิ่ม "' + th + '" แล้ว เริ่มเก็บภาพได้เลย');
       }
+      else if (act === 'impzip') { pickLocalFiles({ accept: '.zip,application/zip,application/x-zip-compressed' }, files => scanZipFile(files[0])); }
+      else if (act === 'impdir') { pickLocalFiles({ dir: true, multiple: true }, files => scanFileList(files)); }
+      else if (act === 'impimg') { const target = selItem; pickLocalFiles({ accept: 'image/*', multiple: true }, files => scanFileList(files, target)); }
+      else if (act === 'impgo') { await runImport(); }
+      else if (act === 'impstop') { imp.cancel = true; }
+      else if (act === 'impcancel') { Object.assign(imp, { groups: null, file: null, result: '' }); $('#impMap').innerHTML = ''; }
+      else if (act === 'csvexport') { exportWasteCSV(); }
+      else if (act === 'csvimport') {
+        pickLocalFiles({ accept: '.csv,text/csv,text/plain' }, async files => {
+          const r = importWasteCSV(await files[0].text());
+          $('#csvOut').innerHTML = `<div class="note ok">เพิ่มรายการใหม่ ${r.added} รายการ อัปเดต ${r.updated} รายการ${r.noBin ? ` | ${r.noBin} แถวระบุถังไม่ชัดเจน จึงใส่ถังสีน้ำเงินไว้ก่อน แก้ได้ที่การ์ดรายการ` : ''}</div>`;
+          refreshTrainUI(); warmPhrases(true);
+        });
+      }
       else if (act === 'savenow') { await saveDatasetNow(); toast('บันทึกแล้ว'); }
       else if (act === 'export') { await exportModelFile(); toast('ส่งออกไฟล์ ecosort-model.json แล้ว'); }
       else if (act === 'import') { pickFile(async obj => { await importModelObj(obj); toast('นำเข้าโมเดลแล้ว ' + totalSamples() + ' ภาพ'); showTab('train'); }); }
@@ -2044,6 +2350,8 @@ function bindAdmin() {
       if (path.length === 2) b[path[0]][path[1]] = v; else b[path[0]] = v;
       saveSettings(); renderBins();
     }
+    if (el.id === 'impCap') { imp.cap = +el.value; $('#impCapV').textContent = el.value; }
+    if (el.dataset.imp && el.dataset.imp !== 'mode' && imp.groups) { const g = [...imp.groups.values()][+el.closest('tr').dataset.g]; if (g) g.map[el.dataset.imp] = el.value; }
     if (el.id === 'apiKey') { S.apiKey = el.value.trim(); saveSettings(); updateNet(); }
     if (el.id === 'model') { S.model = el.value.trim(); saveSettings(); }
     if (el.id === 'sysPrompt') { S.systemPrompt = el.value; saveSettings(); }
@@ -2055,6 +2363,10 @@ function bindAdmin() {
     if (el.id === 'camSel') { S.cameraId = el.value; saveSettings(); startCamera().catch(err => toast(camErrorText(err), 5000)); }
     if (el.id === 'modelSize') { S.modelSize = el.value; saveSettings(); }
     if (el.id === 'evTrue') state.evalTrue = el.value;
+    if (el.dataset.imp === 'mode' && imp.groups) {
+      const g = [...imp.groups.values()][+el.closest('tr').dataset.g];
+      if (g) { const v = el.value; if (v === 'skip') g.map = { mode: 'skip' }; else if (v === 'new') { const sg = suggestMap(g.name); g.map = sg.mode === 'new' ? sg : { mode: 'new', th: g.name || 'รายการใหม่', en: g.name || 'New item', bin: 'blue' }; } else g.map = { mode: 'item', item: v.slice(5) }; $('#impMap').innerHTML = impMapHTML(); }
+    }
     if (el.dataset.set && el.tagName === 'SELECT') { S[el.dataset.set] = el.value; saveSettings(); if (/^voice/.test(el.dataset.set)) fillVoiceSelects(); }
   });
 }
